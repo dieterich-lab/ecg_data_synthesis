@@ -1,0 +1,25 @@
+/mimic_iv/files/
+/mimic_iv/plots/
+/mimic_iv/processed_data/
+/mimic_iv/log_mimic_data.txt
+/mimic_iv/log_train_output.txt
+/mimic_iv/process_mimic.sh
+/mimic_iv/sssd_mimic_training.log
+/generated_ecg_plots/
+/src/sssd/ptbxl_test_data.npy
+/src/sssd/ptbxl_test_labels.npy
+/src/sssd/ptbxl_train_data.npy
+/src/sssd/ptbxl_train_labels.npy
+/src/ptb_xl/data_folder_ptb_xl/
+/src/ptb_xl/processed_ptb_xl_fs100/
+/sssd_label_cond/
+/test_ecgs/
+/uk_biobank/
+/venv/
+/sssd_ecg_train.sh
+/clinical evaluation/
+/.idea/.gitignore
+/.idea/deployment.xml
+/src/baselines/
+/src/ptb_xl/ecg_data_preprocessing.ipynb
+/src/ptb_xl/clinical_ts/.ipynb_checkpoints/timeseries_utils-checkpoint.py
