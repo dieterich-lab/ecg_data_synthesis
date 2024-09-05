@@ -1,16 +1,13 @@
+import os
 import sys
 import time
-
 import numpy as np
 import wfdb
 import neurokit2 as nk
-import os
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
-import torch
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
-from sklearn.model_selection import train_test_split
+from utils import normalize_data
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -245,4 +242,28 @@ def clean_ecgs():
     print(all_labels.shape)
 
 
-multi_label_data_split()
+def normalize():
+    train_data = np.load('./mimic_iv/processed_data/data/mimic_train_data_cleaned.npy')
+    val_data = np.load('./mimic_iv/processed_data/data/mimic_val_data_cleaned.npy')
+    test_data = np.load('./mimic_iv/processed_data/data/mimic_test_data_cleaned.npy')
+    temp_data = np.load('./mimic_iv/processed_data/data/mimic_all_data_100_cleaned.npy')
+
+    # filtered_data, filtered_labels = remove_nan(data_ptbxl, labels_ptbxl)
+    normalized_train_data = normalize_data(train_data)
+    normalized_val_data = normalize_data(val_data)
+    normalized_test_data = normalize_data(test_data)
+    normalized_temp_data = normalize_data(temp_data)
+
+    np.save('./mimic_iv/processed_data/data/mimic_train_data_cleaned_normalized.npy', normalized_train_data)
+    np.save('./mimic_iv/processed_data/data/mimic_val_data_cleaned_normalized.npy', normalized_val_data)
+    np.save('./mimic_iv/processed_data/data/mimic_test_data_cleaned_normalized.npy', normalized_test_data)
+    np.save('./mimic_iv/processed_data/data/mimic_temp_data_cleaned_normalized.npy', normalized_temp_data)
+
+
+def normalize_temp_data():
+    temp_data = np.load('./mimic_iv/processed_data/data/mimic_all_data_100_cleaned.npy')
+    normalized_temp_data = normalize_data(temp_data)
+    np.save('./mimic_iv/processed_data/data/mimic_100_cleaned_normalized.npy', normalized_temp_data)
+
+
+normalize_temp_data()

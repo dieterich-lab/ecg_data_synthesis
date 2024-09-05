@@ -1,7 +1,7 @@
 import os
+
 import numpy as np
 import torch
-import random
 
 
 def flatten(v):
@@ -31,7 +31,7 @@ def find_max_epoch(path):
             continue
         if f[-4:] == '.pkl':
             try:
-                epoch = max(epoch, int(f[:-4]))
+                epoch = max(epoch, int(f[11:-4]))
             except:
                 continue
     return epoch
@@ -180,8 +180,8 @@ def training_loss_label(net, loss_fn, X, diffusion_hyperparams):
     label = X[1]
     B, C, L = data.shape  # B is batch size, C=1, L is data samples length
     diffusion_steps = torch.randint(T, size=(B, 1, 1)).cuda()  # randomly sample diffusion steps from 1~T
-    z = std_normal(data.shape)
+    z = std_normal(data.shape).cuda()
     transformed_X = torch.sqrt(Alpha_bar[diffusion_steps]) * data + torch.sqrt(1 - Alpha_bar[diffusion_steps]) * z
-    epsilon_theta = net((transformed_X, label, diffusion_steps.view(B, 1),))
+    epsilon_theta = net((transformed_X, label, diffusion_steps.view(B, 1)))
 
     return loss_fn(epsilon_theta, z)

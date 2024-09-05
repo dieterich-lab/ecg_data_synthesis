@@ -34,7 +34,7 @@ class ZeroConv1d(nn.Module):
         return out
 
 
-class Residual_block(nn.Module):
+class ResidualBlock(nn.Module):
     def __init__(self, res_channels, skip_channels,
                  diffusion_step_embed_dim_out, in_channels,
                  s4_lmax,
@@ -43,7 +43,7 @@ class Residual_block(nn.Module):
                  s4_bidirectional,
                  s4_layernorm,
                  label_embed_dim=None):
-        super(Residual_block, self).__init__()
+        super(ResidualBlock, self).__init__()
         self.res_channels = res_channels
 
         self.fc_t = nn.Linear(diffusion_step_embed_dim_out, self.res_channels)
@@ -104,7 +104,7 @@ class Residual_block(nn.Module):
         return (x + res) * math.sqrt(0.5), skip  # normalize for training stability
 
 
-class Residual_group(nn.Module):
+class ResidualGroup(nn.Module):
     def __init__(self, res_channels, skip_channels, num_res_layers,
                  diffusion_step_embed_dim_in,
                  diffusion_step_embed_dim_mid,
@@ -116,7 +116,7 @@ class Residual_group(nn.Module):
                  s4_bidirectional,
                  s4_layernorm,
                  label_embed_dim=None):
-        super(Residual_group, self).__init__()
+        super(ResidualGroup, self).__init__()
         self.num_res_layers = num_res_layers
         self.diffusion_step_embed_dim_in = diffusion_step_embed_dim_in
 
@@ -125,15 +125,15 @@ class Residual_group(nn.Module):
 
         self.residual_blocks = nn.ModuleList()
         for n in range(self.num_res_layers):
-            self.residual_blocks.append(Residual_block(res_channels, skip_channels,
-                                                       diffusion_step_embed_dim_out=diffusion_step_embed_dim_out,
-                                                       in_channels=in_channels,
-                                                       s4_lmax=s4_lmax,
-                                                       s4_d_state=s4_d_state,
-                                                       s4_dropout=s4_dropout,
-                                                       s4_bidirectional=s4_bidirectional,
-                                                       s4_layernorm=s4_layernorm,
-                                                       label_embed_dim=label_embed_dim))
+            self.residual_blocks.append(ResidualBlock(res_channels, skip_channels,
+                                                      diffusion_step_embed_dim_out=diffusion_step_embed_dim_out,
+                                                      in_channels=in_channels,
+                                                      s4_lmax=s4_lmax,
+                                                      s4_d_state=s4_d_state,
+                                                      s4_dropout=s4_dropout,
+                                                      s4_bidirectional=s4_bidirectional,
+                                                      s4_layernorm=s4_layernorm,
+                                                      label_embed_dim=label_embed_dim))
 
     def forward(self, input_data):
         noise, label_embed, diffusion_steps = input_data
@@ -172,19 +172,19 @@ class SSSD_ECG(nn.Module):
         self.embedding = nn.Embedding(label_embed_classes,
                                       label_embed_dim) if label_embed_classes > 0 is not None else None
 
-        self.residual_layer = Residual_group(res_channels=res_channels,
-                                             skip_channels=skip_channels,
-                                             num_res_layers=num_res_layers,
-                                             diffusion_step_embed_dim_in=diffusion_step_embed_dim_in,
-                                             diffusion_step_embed_dim_mid=diffusion_step_embed_dim_mid,
-                                             diffusion_step_embed_dim_out=diffusion_step_embed_dim_out,
-                                             in_channels=in_channels,
-                                             s4_lmax=s4_lmax,
-                                             s4_d_state=s4_d_state,
-                                             s4_dropout=s4_dropout,
-                                             s4_bidirectional=s4_bidirectional,
-                                             s4_layernorm=s4_layernorm,
-                                             label_embed_dim=label_embed_dim if label_embed_classes > 0 else None)
+        self.residual_layer = ResidualGroup(res_channels=res_channels,
+                                            skip_channels=skip_channels,
+                                            num_res_layers=num_res_layers,
+                                            diffusion_step_embed_dim_in=diffusion_step_embed_dim_in,
+                                            diffusion_step_embed_dim_mid=diffusion_step_embed_dim_mid,
+                                            diffusion_step_embed_dim_out=diffusion_step_embed_dim_out,
+                                            in_channels=in_channels,
+                                            s4_lmax=s4_lmax,
+                                            s4_d_state=s4_d_state,
+                                            s4_dropout=s4_dropout,
+                                            s4_bidirectional=s4_bidirectional,
+                                            s4_layernorm=s4_layernorm,
+                                            label_embed_dim=label_embed_dim if label_embed_classes > 0 else None)
 
         self.final_conv = nn.Sequential(Conv(skip_channels, skip_channels, kernel_size=1),
                                         nn.ReLU(),
