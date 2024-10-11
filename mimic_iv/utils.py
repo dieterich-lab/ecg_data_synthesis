@@ -1,4 +1,24 @@
 import numpy as np
+from scipy.signal import resample
+
+
+def downsample_ecg(ecg_data, target_points):
+    """
+    Downsamples the ECG data to the target number of points.
+
+    ecg_data: numpy array of shape (num_leads, original_length)
+    target_points: int, the number of points to resample to (e.g., 1000)
+
+    Returns:
+    downsampled_data: numpy array of shape (num_leads, target_points)
+    """
+    num_leads, original_length = ecg_data.shape
+    downsampled_data = np.zeros((num_leads, target_points))
+
+    for lead in range(num_leads):
+        downsampled_data[lead, :] = resample(ecg_data[lead, :], target_points)
+
+    return downsampled_data
 
 
 def remove_nan(data_ptbxl, labels_ptbxl):

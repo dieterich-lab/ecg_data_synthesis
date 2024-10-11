@@ -23,3 +23,4 @@
 /src/baselines/
 /src/ptb_xl/ecg_data_preprocessing.ipynb
 /src/ptb_xl/clinical_ts/.ipynb_checkpoints/timeseries_utils-checkpoint.py
+/sssd_ecg_infer.sh

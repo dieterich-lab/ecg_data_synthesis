@@ -12,17 +12,17 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import StepLR
 from models.SSSD_ECG import SSSD_ECG
 from utils.util import find_max_epoch, training_loss_label, calc_diffusion_hyperparams
 from torch.utils.tensorboard import SummaryWriter
 import torch.backends.cudnn as cudnn
-import tensorboard
 
 cudnn.benchmark = True
 cudnn.enabled = True
 
-writer = SummaryWriter('./mimic_iv/tensorboard_runs/experiment_1')
+experiment = 5
+writer = SummaryWriter(f'./mimic_iv/tensorboard_runs/experiment_ecg_subset_{experiment}')
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
@@ -56,7 +56,7 @@ def train(output_dir_orig,
     """
 
     logging.basicConfig(
-        filename='./mimic_iv/sssd_mimic_training.log',
+        filename=f'./mimic_iv/sssd_mimic_training_subset_{experiment}.log',
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
@@ -64,9 +64,10 @@ def train(output_dir_orig,
     logger = logging.getLogger('SSSD-MIMIC Training')
 
     # generate experiment (local) path
-    local_path = "ch{}_T{}_betaT{}".format(model_config["res_channels"],
-                                           diffusion_config["T"],
-                                           diffusion_config["beta_T"])
+    local_path = "ch{}_T{}_betaT{}_v{}".format(model_config["res_channels"],
+                                               diffusion_config["T"],
+                                               diffusion_config["beta_T"],
+                                               experiment)
 
     # Get shared output_directory ready
     output_directory = os.path.join(output_dir_orig, local_path)
@@ -110,10 +111,10 @@ def train(output_dir_orig,
         random.seed(init_seed + worker_id)
 
     # Load training and validation data with labels
-    train_data = np.load('./mimic_iv/processed_data/data/mimic_train_data_cleaned_normalized.npy')
-    train_labels = np.load('./mimic_iv/processed_data/labels/mimic_train_labels_cleaned.npy')
-    val_data = np.load('./mimic_iv/processed_data/data/mimic_val_data_cleaned_normalized.npy')
-    val_labels = np.load('./mimic_iv/processed_data/labels/mimic_val_labels_cleaned.npy')
+    train_data = np.load('./mimic_iv/processed_data/subset/mimic_train_data_normalized_subset.npy')
+    train_labels = np.load('./mimic_iv/processed_data/subset/mimic_train_labels_normalized_subset.npy')
+    val_data = np.load('./mimic_iv/processed_data/subset/mimic_val_data_normalized_subset.npy')
+    val_labels = np.load('./mimic_iv/processed_data/subset/mimic_val_labels_normalized_subset.npy')
 
     print_gpu_utilization()
 
@@ -121,12 +122,8 @@ def train(output_dir_orig,
     train_dataset = MimicDataset(train_data, train_labels)
     val_dataset = MimicDataset(val_data, val_labels)
 
-    train_loader = DataLoader(train_dataset,
-                              shuffle=True, batch_size=batch_size, drop_last=True,
-                              num_workers=6, worker_init_fn=worker_init_fn, pin_memory=True)
-    val_loader = DataLoader(val_dataset,
-                            shuffle=False, batch_size=batch_size, drop_last=True,
-                            num_workers=6, worker_init_fn=worker_init_fn, pin_memory=True)
+    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size, drop_last=True, num_workers=6)
+    val_loader = DataLoader(val_dataset, shuffle=False, batch_size=batch_size, drop_last=True, num_workers=6)
 
     # map diffusion hyperparameters to gpu
     for key in diffusion_hyperparams:
@@ -136,11 +133,6 @@ def train(output_dir_orig,
     # predefine model
     net = SSSD_ECG(**model_config)
 
-    # Log the total of trainable parameters
-    model_size = sum(t.numel() for t in net.parameters())
-    print(model_size)
-    logger.info(f"Model size: {model_size / 1000 ** 2:.1f}M parameters")
-
     # Use DataParallel to utilize multiple GPUs
     if torch.cuda.device_count() > 1:
         print("Using", torch.cuda.device_count(), "GPUs!")
@@ -148,10 +140,15 @@ def train(output_dir_orig,
 
     net = net.cuda()
 
+    # Log the total of trainable parameters
+    model_size = sum(t.numel() for t in net.parameters())
+    print(model_size)
+    logger.info(f"Model size: {model_size / 1000 ** 2:.1f}M parameters")
+
     print_gpu_utilization()
 
     # define optimizer
-    optimizer = torch.optim.AdamW(net.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
 
     # load checkpoint
     if ckpt_iter == 'max':
@@ -159,7 +156,7 @@ def train(output_dir_orig,
     if ckpt_iter >= 0:
         try:
             # load checkpoint file
-            model_path = os.path.join(output_directory, '{}.pkl'.format(ckpt_iter))
+            model_path = os.path.join(output_directory, 'best_model_{}.pkl'.format(ckpt_iter))
             checkpoint = torch.load(model_path, map_location='cpu')
 
             # feed model dict and optimizer state
@@ -181,7 +178,7 @@ def train(output_dir_orig,
 
     # Training phase
     # scheduler = StepLR(optimizer, step_size=10, gamma=0.1)
-    scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=3, verbose=True)
+    # scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2, verbose=True)
 
     # Early stopping variables
     best_val_loss = float('inf')
@@ -198,7 +195,6 @@ def train(output_dir_orig,
         logger.info(f'Epoch: {epoch}')
 
         # Training phase
-        net.train()  # Set model to train mode
         train_loss_batch = []
         accumulation_steps = 4
         for step, (ecg, label) in enumerate(train_loader):
@@ -207,20 +203,21 @@ def train(output_dir_orig,
 
             # back-propagation
             optimizer.zero_grad()
+
             X = ecg, label
             loss = training_loss_label(net, nn.MSELoss(), X, diffusion_hyperparams)
-            logger.info(f"Epoch {epoch} | Step {step}/{len(train_loader) - 1} | Training loss: {loss.item():.6f}")
-            loss.backward()
 
-            if (step + 1) % accumulation_steps == 0:
-                optimizer.step()
+            loss.backward()
+            optimizer.step()
+
+            logger.info(f"Epoch {epoch} | Step {step}/{len(train_loader) - 1} | Training loss: {loss.item():.6f}")
 
             train_loss_batch.append(loss.item())
             train_loss_iter.append(loss.item())
 
             # Log the loss to TensorBoard
             if step % 1000 == 999:  # Log every 1000 iterations
-                writer.add_scalar('Training Loss', sum(train_loss_batch)/1000, epoch * len(train_loader) + step)
+                writer.add_scalar('Training Loss', sum(train_loss_batch) / 1000, epoch * len(train_loader) + step)
 
         avg_train_loss = sum(train_loss_batch) / len(train_loss_batch)
         train_loss_epoch.append(avg_train_loss)
@@ -274,8 +271,9 @@ def train(output_dir_orig,
             logger.info(f"Early stopping at epoch {epoch} due to no improvement in validation loss.")
             break  # Exit the loop if early stopping is triggered
 
-        # Step the scheduler with the average validation loss
-        scheduler.step(avg_val_loss)
+        # Step the scheduler
+        # scheduler.step()
+        # print(f'Epoch {epoch}, LR: {scheduler.get_last_lr()[0]}')
         torch.cuda.empty_cache()
 
     avg_epoch_time = sum(epoch_times) / len(epoch_times)
@@ -289,7 +287,7 @@ def train(output_dir_orig,
     plt.ylabel('Loss')
     plt.title('Training and Validation Loss per Iteration for MIMIC-IV ECGs')
     plt.legend()
-    plt.savefig('./mimic_iv/plots/train_val_loss_iteration.png')
+    plt.savefig(f'./mimic_iv/plots/train_val_loss_iteration_subset_{experiment}.png')
     plt.clf()
 
     # Plot loss per epoch
@@ -299,7 +297,7 @@ def train(output_dir_orig,
     plt.ylabel('Loss')
     plt.title('Training and Validation Loss per epoch for MIMIC-IV ECGs')
     plt.legend()
-    plt.savefig('./mimic_iv/plots/train_val_loss_epoch.png')
+    plt.savefig(f'./mimic_iv/plots/train_val_loss_epoch_subset_{experiment}.png')
 
     writer.close()
     logger.info('Training completed')
@@ -307,7 +305,8 @@ def train(output_dir_orig,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='./src/sssd/config/SSSD_ECG_MIMIC.json',
+    print(os.getcwd())
+    parser.add_argument('-c', '--config', type=str, default='src/sssd/config/SSSD_ECG_MIMIC_Subset.json',
                         help='JSON file for configuration')
 
     args = parser.parse_args()

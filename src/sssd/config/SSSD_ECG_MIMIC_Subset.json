@@ -22,13 +22,14 @@
     "label_embed_classes": 20
   },
   "train_config": {
-    "output_dir_orig": "mimic_iv/sssd_label_cond",
+    "output_dir_orig": "./mimic_iv/sssd_label_cond_subset",
     "ckpt_iter": "max",
-    "iters_per_ckpt": 4000,
-    "iters_per_logging": 100,
-    "n_iters": 100000,
+    "epochs_per_ckpt": 1,
+    "max_epochs": 60,
     "learning_rate": 2e-4,
-    "batch_size": 8
+    "batch_size": 8,
+    "patience": 5,
+    "min_delta": 1e-4
   },
   "trainset_config": {
     "segment_length": 1000,
@@ -36,7 +37,7 @@
     "finetune_dataset": "mimic_iv"
   },
   "gen_config": {
-    "output_directory": "mimic_iv/sssd_label_cond",
-    "ckpt_path": "mimic_iv/sssd_label_cond/"
+    "output_directory": "./mimic_iv/sssd_label_cond_subset",
+    "ckpt_path": "./mimic_iv/sssd_label_cond_subset/"
   }
 }

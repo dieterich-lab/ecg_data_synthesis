@@ -10,6 +10,8 @@ from models.SSSD_ECG import SSSD_ECG
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
+Experiment = 4
+
 
 def generate_four_leads(tensor):
     leadI = tensor[:, 0, :].unsqueeze(1)
@@ -38,18 +40,19 @@ def generate(output_directory,
     output_directory (str):           save generated speeches to this path
     num_samples (int):                number of samples to generate, default is 4
     ckpt_path (str):                  checkpoint path
-    ckpt_iter (int or 'max'):         the pretrained checkpoint to be loaded; 
+    ckpt_iter (int or 'max'):         the pretrained checkpoint to be loaded;
                                       automitically selects the maximum iteration if 'max' is selected
     data_path (str):                  path to dataset, numpy array.
     """
 
     # generate experiment (local) path
-    local_path = "ch{}_T{}_betaT{}".format(model_config["res_channels"],
-                                           diffusion_config["T"],
-                                           diffusion_config["beta_T"])
+    local_path = "ch{}_T{}_betaT{}_mimic".format(model_config["res_channels"],
+                                                 diffusion_config["T"],
+                                                 diffusion_config["beta_T"],
+                                                 )
 
     # Get shared output_directory ready
-    output_directory = os.path.join(output_directory, 'generated_ecgs')
+    output_directory = os.path.join(output_directory, f'generated_ecgs_mimic_110000')
     if not os.path.isdir(output_directory):
         os.makedirs(output_directory)
         os.chmod(output_directory, 0o775)
@@ -62,7 +65,7 @@ def generate(output_directory,
 
     # predefine model
     net = SSSD_ECG(**model_config).cuda()
-    net = torch.nn.DataParallel(net)
+    # net = torch.nn.DataParallel(net)
     print_size(net)
 
     # load checkpoint
@@ -70,7 +73,7 @@ def generate(output_directory,
     if ckpt_iter == 'max':
         ckpt_iter = find_max_epoch(ckpt_path)
         print(ckpt_iter)
-    model_path = os.path.join(ckpt_path, 'best_model_{}.pkl'.format(ckpt_iter))
+    model_path = os.path.join(ckpt_path, '{}.pkl'.format(ckpt_iter))
     try:
         print("Loading checkpoint from {}".format(model_path))
         checkpoint = torch.load(model_path, map_location='cpu')
@@ -79,8 +82,8 @@ def generate(output_directory,
     except BaseException as e:
         raise Exception('No valid model found - {}'.format(e))
 
-    test_data = np.load('./mimic_iv/processed_data/data/mimic_test_data_cleaned_normalized.npy')
-    test_labels = np.load('./mimic_iv/processed_data/labels/mimic_test_labels_cleaned.npy')
+    test_data = np.load('./mimic_iv/processed_data/subset/mimic_test_data_normalized_subset.npy')
+    test_labels = np.load('./mimic_iv/processed_data/subset/mimic_test_labels_normalized_subset.npy')
 
     test_dataset = []
     for i in range(test_data.shape[0]):
@@ -127,7 +130,7 @@ def generate(output_directory,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='./src/sssd/config/SSSD_ECG_MIMIC.json',
+    parser.add_argument('-c', '--config', type=str, default='src/sssd/config/SSSD_ECG_MIMIC.json',
                         help='JSON file for configuration')
     parser.add_argument('-ckpt_iter', '--ckpt_iter', default='max',
                         help='Which checkpoint to use; assign a number or "max"')
@@ -160,4 +163,4 @@ if __name__ == "__main__":
 
     generate(**gen_config,
              ckpt_iter=args.ckpt_iter,
-             num_samples=args.num_samples, )
+             num_samples=args.num_samples)
