@@ -34,7 +34,7 @@ def train(output_directory,
     """
 
     logging.basicConfig(
-        filename='src/sssd/sssd_training_ptbxl.log',
+        filename='src/sssd/sssd_mimic_training_mimic.log',
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
@@ -42,7 +42,7 @@ def train(output_directory,
     logger = logging.getLogger('SSSD-PTBXL Training')
 
     # generate experiment (local) path
-    local_path = "ch{}_T{}_betaT{}_ptbxl".format(model_config["res_channels"],
+    local_path = "ch{}_T{}_betaT{}_mimic".format(model_config["res_channels"],
                                                  diffusion_config["T"],
                                                  diffusion_config["beta_T"])
 
@@ -97,12 +97,12 @@ def train(output_directory,
         ckpt_iter = -1
         print('No valid checkpoint model found, start training from initialization.')
 
-    here = os.path.dirname(os.path.abspath(__file__))
-    filename_train = os.path.join(here, 'ptbxl_train_data.npy')
-    filename_train_label = os.path.join(here, 'ptbxl_train_labels.npy')
+    # here = os.path.dirname(os.path.abspath(__file__))
+    # filename_train = os.path.join(here, 'ptbxl_train_data.npy')
+    # filename_train_label = os.path.join(here, 'ptbxl_train_labels.npy')
 
-    # filename_train = 'mimic_iv/processed_data/subset/mimic_train_data_normalized_subset.npy'
-    # filename_train_label = 'mimic_iv/processed_data/subset/mimic_train_labels_normalized_subset.npy'
+    filename_train = 'mimic_iv/processed_data/subset/mimic_train_data_normalized_subset.npy'
+    filename_train_label = 'mimic_iv/processed_data/subset/mimic_train_labels_normalized_subset.npy'
 
     data_ptbxl = np.load(filename_train)
     labels_ptbxl = np.load(filename_train_label)
@@ -114,12 +114,12 @@ def train(output_directory,
     trainloader = torch.utils.data.DataLoader(train_data, shuffle=True, batch_size=batch_size, drop_last=True)
 
     # ['I','II','V1','V2','V3','V4','V5','V6','III','AVR','AVL','AVF'] for processed ptbxl dataset
-    index_8 = torch.tensor([0, 2, 3, 4, 5, 6, 7, 11])
-    index_4 = torch.tensor([1, 8, 9, 10])
+    # index_8 = torch.tensor([0, 2, 3, 4, 5, 6, 7, 11])
+    # index_4 = torch.tensor([1, 8, 9, 10])
 
     # ['I', 'II', 'III', 'aVR', 'aVF', 'aVL', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6'] for mimic-iv dataset
-    # index_8 = torch.tensor([0, 4, 6, 7, 8, 9, 10, 11])
-    # index_4 = torch.tensor([1, 2, 3, 5])
+    index_8 = torch.tensor([0, 4, 6, 7, 8, 9, 10, 11])
+    index_4 = torch.tensor([1, 2, 3, 5])
 
     # training
     n_iter = ckpt_iter + 1
@@ -163,16 +163,16 @@ def train(output_directory,
     plt.plot(iter_loss, label='Training Loss')
     plt.xlabel('Iteration')
     plt.ylabel('Loss')
-    plt.title('Training Loss per Iteration for PTB-XL ECGs')
+    plt.title('Training Loss per Iteration for MIMIC-IV ECGs')
     plt.legend()
-    plt.savefig('src/sssd/train_loss_iteration_ptbxl.png')
+    plt.savefig('src/sssd/train_loss_iteration_mimic_latest.png')
 
     logger.info('Training completed')
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='src/sssd/config/SSSD_ECG.json',
+    parser.add_argument('-c', '--config', type=str, default='src/sssd/config/SSSD_ECG_MIMIC.json',
                         help='JSON file for configuration')
 
     args = parser.parse_args()

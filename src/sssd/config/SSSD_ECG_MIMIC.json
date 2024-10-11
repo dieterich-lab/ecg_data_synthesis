@@ -24,10 +24,10 @@
   "train_config": {
     "output_directory": "mimic_iv/sssd_label_cond",
     "ckpt_iter": "max",
-    "iters_per_ckpt": 4000,
+    "iters_per_ckpt": 2000,
     "iters_per_logging": 100,
-    "n_iters": 100000,
-    "learning_rate": 2e-4,
+    "n_iters": 110000,
+    "learning_rate": 2e-5,
     "batch_size": 8
   },
   "trainset_config": {
