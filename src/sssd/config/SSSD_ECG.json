@@ -22,7 +22,7 @@
     "label_embed_classes": 71
   },
   "train_config": {
-    "output_directory": "sssd_label_cond",
+    "output_directory": "src/sssd/sssd_label_cond",
     "ckpt_iter": "max",
     "iters_per_ckpt": 4000,
     "iters_per_logging": 100,
@@ -36,7 +36,7 @@
     "finetune_dataset": "ptbxl_all"
   },
   "gen_config": {
-    "output_directory": "sssd_label_cond",
-    "ckpt_path": "sssd_label_cond/"
+    "output_directory": "src/sssd/sssd_label_cond",
+    "ckpt_path": "src/sssd/sssd_label_cond/"
   }
 }

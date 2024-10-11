@@ -8,7 +8,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from mimic_iv.utils import remove_nan, normalize_data
 from models.SSSD_ECG import SSSD_ECG
 from utils.util import find_max_epoch, training_loss_label, calc_diffusion_hyperparams
 
@@ -35,17 +34,17 @@ def train(output_directory,
     """
 
     logging.basicConfig(
-        filename='../../mimic_iv/sssd_mimic_training.log',
+        filename='src/sssd/sssd_training_ptbxl.log',
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
-    logger = logging.getLogger('SSSD-MIMIC Training')
+    logger = logging.getLogger('SSSD-PTBXL Training')
 
     # generate experiment (local) path
-    local_path = "ch{}_T{}_betaT{}".format(model_config["res_channels"],
-                                           diffusion_config["T"],
-                                           diffusion_config["beta_T"])
+    local_path = "ch{}_T{}_betaT{}_ptbxl".format(model_config["res_channels"],
+                                                 diffusion_config["T"],
+                                                 diffusion_config["beta_T"])
 
     # Get shared output_directory ready
     output_directory = os.path.join(output_directory, local_path)
@@ -67,9 +66,9 @@ def train(output_directory,
     logger.info(f"Model size: {model_size / 1000 ** 2:.1f}M parameters")
 
     # Use DataParallel to utilize multiple GPUs
-    if torch.cuda.device_count() > 1:
-        print("Using", torch.cuda.device_count(), "GPUs!")
-        net = nn.DataParallel(net)
+    # if torch.cuda.device_count() > 1:
+    #     print("Using", torch.cuda.device_count(), "GPUs!")
+    #     net = nn.DataParallel(net)
 
     net = net.cuda()
 
@@ -98,66 +97,56 @@ def train(output_directory,
         ckpt_iter = -1
         print('No valid checkpoint model found, start training from initialization.')
 
-    # here = os.path.dirname(os.path.abspath(__file__))
-    # filename_train = os.path.join(here, 'ptbxl_train_data.npy')
-    # filename_train_label = os.path.join(here, 'ptbxl_train_labels.npy')
-    # data_ptbxl = np.load(filename_train)
-    # labels_ptbxl = np.load(filename_train_label)
+    here = os.path.dirname(os.path.abspath(__file__))
+    filename_train = os.path.join(here, 'ptbxl_train_data.npy')
+    filename_train_label = os.path.join(here, 'ptbxl_train_labels.npy')
 
-    train_data = np.load('../../mimic_iv/processed_data/data/mimic_train_data_cleaned.npy')
-    train_labels = np.load('../../mimic_iv/processed_data/labels/mimic_train_labels_cleaned.npy')
-    val_data = np.load('../../mimic_iv/processed_data/data/mimic_val_data_cleaned.npy')
-    val_labels = np.load('../../mimic_iv/processed_data/labels/mimic_val_labels_cleaned.npy')
+    # filename_train = 'mimic_iv/processed_data/subset/mimic_train_data_normalized_subset.npy'
+    # filename_train_label = 'mimic_iv/processed_data/subset/mimic_train_labels_normalized_subset.npy'
 
-    # filtered_data, filtered_labels = remove_nan(data_ptbxl, labels_ptbxl)
-    normalized_train_data = normalize_data(train_data)
-    normalized_val_data = normalize_data(val_data)
+    data_ptbxl = np.load(filename_train)
+    labels_ptbxl = np.load(filename_train_label)
 
-    train_dataset, val_dataset = [], []
-    for i in range(normalized_train_data.shape[0]):
-        train_dataset.append([normalized_train_data[i], train_labels[i]])
+    train_data = []
+    for i in range(len(data_ptbxl)):
+        train_data.append([data_ptbxl[i], labels_ptbxl[i]])
 
-    for i in range(normalized_val_data.shape[0]):
-        val_dataset.append([normalized_val_data[i], val_labels[i]])
-
-    train_loader = torch.utils.data.DataLoader(train_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
-    val_loader = torch.utils.data.DataLoader(val_dataset, shuffle=True, batch_size=batch_size, drop_last=True)
+    trainloader = torch.utils.data.DataLoader(train_data, shuffle=True, batch_size=batch_size, drop_last=True)
 
     # ['I','II','V1','V2','V3','V4','V5','V6','III','AVR','AVL','AVF'] for processed ptbxl dataset
-    # index_8 = torch.tensor([0, 2, 3, 4, 5, 6, 7, 11])
-    # index_4 = torch.tensor([1, 8, 9, 10])
+    index_8 = torch.tensor([0, 2, 3, 4, 5, 6, 7, 11])
+    index_4 = torch.tensor([1, 8, 9, 10])
 
     # ['I', 'II', 'III', 'aVR', 'aVF', 'aVL', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6'] for mimic-iv dataset
-    index_8 = torch.tensor([0, 4, 6, 7, 8, 9, 10, 11])
-    index_4 = torch.tensor([1, 2, 3, 5])
+    # index_8 = torch.tensor([0, 4, 6, 7, 8, 9, 10, 11])
+    # index_4 = torch.tensor([1, 2, 3, 5])
 
     # training
     n_iter = ckpt_iter + 1
 
     logger.info('Training started')
 
-    train_loss_epoch = []
-    while n_iter < n_iters + 2:
-        logger.info(f'Epoch: {n_iter}')
-        train_loss_batch = []
-        for step, (data, label) in enumerate(train_loader):
+    iter_loss = []
 
-            data = torch.index_select(data, 1, index_8).float().cuda()
+    while n_iter < n_iters + 1:
+        for audio, label in trainloader:
+
+            audio = torch.index_select(audio, 1, index_8).float().cuda()
             label = label.float().cuda()
 
             # back-propagation
             optimizer.zero_grad()
 
-            X = data, label
+            X = audio, label
 
             loss = training_loss_label(net, nn.MSELoss(), X, diffusion_hyperparams)
+            iter_loss.append(loss.item())
 
             loss.backward()
             optimizer.step()
 
-            print(loss.item())
-            train_loss_batch.append(loss.item())
             if n_iter % iters_per_logging == 0:
+                # print("iteration: {} \tloss: {}".format(n_iter, loss.item()))
                 logger.info("iteration: {} \tloss: {}".format(n_iter, loss.item()))
 
             # save checkpoint
@@ -166,26 +155,24 @@ def train(output_directory,
                 torch.save({'model_state_dict': net.state_dict(),
                             'optimizer_state_dict': optimizer.state_dict()},
                            os.path.join(output_directory, checkpoint_name))
-                logger.info('model at iteration %s is saved' % n_iter)
+                print('model at iteration %s is saved' % n_iter)
 
             n_iter += 1
 
-        avg_train_loss = sum(train_loss_batch) / len(train_loss_batch)
-        train_loss_epoch.append(avg_train_loss)
-        logger.info(f'Training loss for the current epoch: {avg_train_loss}')
-
-    plt.plot(train_loss_epoch)
-    plt.xlabel('Epoch')
+    plt.figure(figsize=(10, 5))
+    plt.plot(iter_loss, label='Training Loss')
+    plt.xlabel('Iteration')
     plt.ylabel('Loss')
-    plt.title('Training loss for SSSD-ECG model with MIMIC-IV ECG data')
-    plt.savefig('../../mimic_iv/plots/training_loss.png')
+    plt.title('Training Loss per Iteration for PTB-XL ECGs')
+    plt.legend()
+    plt.savefig('src/sssd/train_loss_iteration_ptbxl.png')
 
     logger.info('Training completed')
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='./config/SSSD_ECG_MIMIC_temp.json',
+    parser.add_argument('-c', '--config', type=str, default='src/sssd/config/SSSD_ECG.json',
                         help='JSON file for configuration')
 
     args = parser.parse_args()

@@ -13,7 +13,7 @@
     "diffusion_step_embed_dim_in": 128,
     "diffusion_step_embed_dim_mid": 512,
     "diffusion_step_embed_dim_out": 512,
-    "s4_lmax": 5000,
+    "s4_lmax": 1000,
     "s4_d_state": 64,
     "s4_dropout": 0.0,
     "s4_bidirectional": 1,
@@ -28,11 +28,11 @@
     "iters_per_logging": 100,
     "n_iters": 100000,
     "learning_rate": 2e-4,
-    "batch_size": 32
+    "batch_size": 8
   },
   "trainset_config": {
-    "segment_length": 5000,
-    "sampling_rate": 500,
+    "segment_length": 1000,
+    "sampling_rate": 100,
     "finetune_dataset": "mimic_iv"
   },
   "gen_config": {
