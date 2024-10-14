@@ -39,7 +39,7 @@ def train(output_directory,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
-    logger = logging.getLogger('SSSD-PTBXL Training')
+    logger = logging.getLogger('SSSD-MIMIC Training')
 
     # generate experiment (local) path
     local_path = "ch{}_T{}_betaT{}_mimic".format(model_config["res_channels"],
@@ -165,7 +165,7 @@ def train(output_directory,
     plt.ylabel('Loss')
     plt.title('Training Loss per Iteration for MIMIC-IV ECGs')
     plt.legend()
-    plt.savefig('src/sssd/train_loss_iteration_mimic_latest.png')
+    plt.savefig('src/sssd/train_loss_iteration_mimic_300000.png')
 
     logger.info('Training completed')
 
