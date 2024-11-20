@@ -24,17 +24,17 @@ def train(output_directory,
 
     Parameters:
     output_directory (str):         save model checkpoints to this path
-    ckpt_iter (int or 'max'):       the pretrained checkpoint to be loaded;
+    ckpt_iter (int or 'max'):       the pretrained checkpoint to be loaded; 
                                     automatically selects the maximum iteration if 'max' is selected
     data_path (str):                path to dataset, numpy array.
     n_iters (int):                  number of iterations to train
-    iters_per_ckpt (int):           number of iterations to save checkpoint,
+    iters_per_ckpt (int):           number of iterations to save checkpoint, 
     iters_per_logging (int):        number of iterations to save training log and compute validation loss, default is 100
     learning_rate (float):          learning rate
     """
 
     logging.basicConfig(
-        filename='mimic_iv/sssd_mimic_training_subset.log',
+        filename='src/sssd/sssd_mimic_training_mimic.log',
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
@@ -42,9 +42,9 @@ def train(output_directory,
     logger = logging.getLogger('SSSD-MIMIC Training')
 
     # generate experiment (local) path
-    local_path = "ch{}_T{}_betaT{}_filtered".format(model_config["res_channels"],
-                                                      diffusion_config["T"],
-                                                      diffusion_config["beta_T"])
+    local_path = "ch{}_T{}_betaT{}_mimic".format(model_config["res_channels"],
+                                                 diffusion_config["T"],
+                                                 diffusion_config["beta_T"])
 
     # Get shared output_directory ready
     output_directory = os.path.join(output_directory, local_path)
@@ -66,9 +66,9 @@ def train(output_directory,
     logger.info(f"Model size: {model_size / 1000 ** 2:.1f}M parameters")
 
     # Use DataParallel to utilize multiple GPUs
-    if torch.cuda.device_count() > 1:
-        print("Using", torch.cuda.device_count(), "GPUs!")
-        net = nn.DataParallel(net)
+    # if torch.cuda.device_count() > 1:
+    #     print("Using", torch.cuda.device_count(), "GPUs!")
+    #     net = nn.DataParallel(net)
 
     net = net.cuda()
 
@@ -106,15 +106,6 @@ def train(output_directory,
 
     data_ptbxl = np.load(filename_train)
     labels_ptbxl = np.load(filename_train_label)
-
-    print('Shapes: ', data_ptbxl.shape, labels_ptbxl.shape)
-
-    # indices = [8, 9, 11, 32, 39, 47]
-    # data_ptbxl = data_ptbxl[indices, :, :]
-    # labels_ptbxl = labels_ptbxl[indices, :]
-
-    # np.save('mimic_iv/sssd_label_cond/generated_ecgs_test/train_data_50.npy', data_ptbxl)
-    # np.save('mimic_iv/sssd_label_cond/generated_ecgs_test/train_labels_50.npy', labels_ptbxl)
 
     train_data = []
     for i in range(len(data_ptbxl)):
@@ -174,7 +165,7 @@ def train(output_directory,
     plt.ylabel('Loss')
     plt.title('Training Loss per Iteration for MIMIC-IV ECGs')
     plt.legend()
-    plt.savefig('src/sssd/train_loss_iteration_mimic_filtered_v3.png')
+    plt.savefig('src/sssd/train_loss_iteration_mimic_test.png')
 
     logger.info('Training completed')
 

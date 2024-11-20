@@ -9,9 +9,8 @@ import neurokit2 as nk
 import pandas as pd
 import matplotlib.pyplot as plt
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
-from utils import normalize_data, downsample_ecg
+from utils import downsample_ecg
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -193,6 +192,48 @@ def downsample():
     clean_ecgs(downsampled_signals, labels, sampling_rate=100)
 
 
+def multi_label_data_split():
+    signals = np.load('./mimic_iv/processed_data/data/mimic_all_data_cleaned.npy', mmap_mode='r')
+    labels = np.load('./mimic_iv/processed_data/labels/mimic_all_labels_cleaned.npy', mmap_mode='r')
+
+    print(signals.shape, labels.shape)
+    print(signals[:2])
+    print(labels[:2])
+
+    # Initialize MultilabelStratifiedKFold for train-test split
+    mskf = MultilabelStratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+    # Initialize arrays to store the final splits
+    X_train_val, y_train_val, X_test, y_test = None, None, None, None
+
+    # Generate the train+val vs. test split indices
+    for train_index, test_index in mskf.split(signals, labels):
+        X_train_val, X_test = signals[train_index], signals[test_index]
+        y_train_val, y_test = labels[train_index], labels[test_index]
+        break  # Use only the first split
+
+    print(X_train_val.shape, X_test.shape)
+
+    # Initialize arrays to store the train and validation splits
+    X_train, y_train, X_val, y_val = None, None, None, None
+
+    # Generate the train vs. val split indices
+    for t_index, v_index in mskf.split(X_train_val, y_train_val):
+        X_train, X_val = X_train_val[t_index], X_train_val[v_index]
+        y_train, y_val = y_train_val[t_index], y_train_val[v_index]
+        break  # Use only the first split
+
+    print(X_train.shape, X_val.shape)
+
+    # save the train and test data and labels in numpy format for the model
+    np.save('./mimic_iv/processed_data/data/mimic_train_data_cleaned.npy', X_train)
+    np.save('./mimic_iv/processed_data/data/mimic_test_data_cleaned.npy', X_test)
+    np.save('./mimic_iv/processed_data/data/mimic_val_data_cleaned.npy', X_val)
+    np.save('./mimic_iv/processed_data/labels/mimic_train_labels_cleaned.npy', y_train)
+    np.save('./mimic_iv/processed_data/labels/mimic_test_labels_cleaned.npy', y_test)
+    np.save('./mimic_iv/processed_data/labels/mimic_val_labels_cleaned.npy', y_val)
+
+
 def clean_ecgs(signals, labels, sampling_rate, verbose=False):
     print(signals.shape, labels.shape)
 
@@ -252,8 +293,8 @@ def clean_ecgs(signals, labels, sampling_rate, verbose=False):
 
 
 def extract_ecg_subset():
-    signals = np.load('processed_data/data/mimic_all_data_ds_cleaned.npy', mmap_mode='r')
-    labels = np.load('processed_data/labels/mimic_all_labels_ds_cleaned.npy', mmap_mode='r')
+    signals = np.load('mimic_iv/processed_data/data/mimic_all_data_ds_cleaned.npy', mmap_mode='r')
+    labels = np.load('mimic_iv/processed_data/labels/mimic_all_labels_ds_cleaned.npy', mmap_mode='r')
 
     # Create a data subset with 20,000 ecgs of label - [Sinus Rhythm, Normal]
 
@@ -265,11 +306,19 @@ def extract_ecg_subset():
         if label_list == [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]:
             normal_ecg_subset.append(signals[i])
             normal_labels_subset.append(labels[i])
-        if len(normal_ecg_subset) == 20000:
+        if len(normal_ecg_subset) == 25000:
             break
 
     normal_ecg_array = np.array(normal_ecg_subset)
     normal_labels_array = np.array(normal_labels_subset)
+
+    non_ecg_indices = filter_ecgs(normal_ecg_array)
+    print(len(non_ecg_indices))
+
+    normal_ecg_array = np.delete(normal_ecg_array, non_ecg_indices, axis=0)
+    normal_labels_array = np.delete(normal_labels_array, non_ecg_indices, axis=0)
+
+    print(normal_ecg_array.shape, normal_labels_array.shape)
 
     # 70/30 split into train and temp data
     train_data, temp_data, train_labels, temp_labels = train_test_split(normal_ecg_array, normal_labels_array,
@@ -285,9 +334,15 @@ def extract_ecg_subset():
     train_min = np.min(train_data, axis=(0, 2), keepdims=True)  # Min for each lead
     train_max = np.max(train_data, axis=(0, 2), keepdims=True)  # Max for each lead
 
+    np.save('mimic_iv/processed_data/subset/mimic_train_min.npy', train_min)
+    np.save('mimic_iv/processed_data/subset/mimic_train_max.npy', train_max)
+
+    exit()
+
     # Normalize the training, validation, and test sets using training min/max
     def min_max_normalize(data, min_val, max_val):
-        return (data - min_val) / (max_val - min_val)
+        normalized_data = (data - min_val) / (max_val - min_val)
+        return np.clip(normalized_data, 0, 1)
 
     # Apply normalization lead-wise for all splits
     train_data_normalized = min_max_normalize(train_data, train_min, train_max)
@@ -299,89 +354,59 @@ def extract_ecg_subset():
     print("Validation Data Normalized Shape:", val_data_normalized.shape)
     print("Test Data Normalized Shape:", test_data_normalized.shape)
 
-    val_data_clipped = np.clip(val_data_normalized, 0, 1)
-    test_data_clipped = np.clip(test_data_normalized, 0, 1)
-
     # Check the normalized data range
     print("Training Data Range:", np.min(train_data_normalized), np.max(train_data_normalized))
-    print("Validation Data Range:", np.min(val_data_clipped), np.max(val_data_clipped))
-    print("Test Data Range:", np.min(test_data_clipped), np.max(test_data_clipped))
+    print("Validation Data Range:", np.min(val_data_normalized), np.max(val_data_normalized))
+    print("Test Data Range:", np.min(test_data_normalized), np.max(test_data_normalized))
 
-    axs[1].plot(val_data_clipped[10, 5, :])
-    plt.savefig(f'plots/val_data_normalized_{5}_{10}.png')
+    axs[1].plot(val_data_normalized[10, 5, :])
+    plt.savefig(f'mimic_iv/plots/val_data_normalized_{5}_{10}.png')
 
-    np.save('processed_data/subset/mimic_train_data_normalized_subset.npy', train_data_normalized)
-    np.save('processed_data/subset/mimic_test_data_normalized_subset.npy', test_data_clipped)
-    np.save('processed_data/subset/mimic_val_data_normalized_subset.npy', val_data_clipped)
-    np.save('processed_data/subset/mimic_train_labels_normalized_subset.npy', train_labels)
-    np.save('processed_data/subset/mimic_test_labels_normalized_subset.npy', test_labels)
-    np.save('processed_data/subset/mimic_val_labels_normalized_subset.npy', val_labels)
-
-
-def multi_label_data_split():
-    signals = np.load('./mimic_iv/processed_data/data/mimic_all_data_cleaned.npy', mmap_mode='r')
-    labels = np.load('./mimic_iv/processed_data/labels/mimic_all_labels_cleaned.npy', mmap_mode='r')
-
-    print(signals.shape, labels.shape)
-    print(signals[:2])
-    print(labels[:2])
-
-    # Initialize MultilabelStratifiedKFold for train-test split
-    mskf = MultilabelStratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-
-    # Initialize arrays to store the final splits
-    X_train_val, y_train_val, X_test, y_test = None, None, None, None
-
-    # Generate the train+val vs. test split indices
-    for train_index, test_index in mskf.split(signals, labels):
-        X_train_val, X_test = signals[train_index], signals[test_index]
-        y_train_val, y_test = labels[train_index], labels[test_index]
-        break  # Use only the first split
-
-    print(X_train_val.shape, X_test.shape)
-
-    # Initialize arrays to store the train and validation splits
-    X_train, y_train, X_val, y_val = None, None, None, None
-
-    # Generate the train vs. val split indices
-    for t_index, v_index in mskf.split(X_train_val, y_train_val):
-        X_train, X_val = X_train_val[t_index], X_train_val[v_index]
-        y_train, y_val = y_train_val[t_index], y_train_val[v_index]
-        break  # Use only the first split
-
-    print(X_train.shape, X_val.shape)
-
-    # save the train and test data and labels in numpy format for the model
-    np.save('./mimic_iv/processed_data/data/mimic_train_data_cleaned.npy', X_train)
-    np.save('./mimic_iv/processed_data/data/mimic_test_data_cleaned.npy', X_test)
-    np.save('./mimic_iv/processed_data/data/mimic_val_data_cleaned.npy', X_val)
-    np.save('./mimic_iv/processed_data/labels/mimic_train_labels_cleaned.npy', y_train)
-    np.save('./mimic_iv/processed_data/labels/mimic_test_labels_cleaned.npy', y_test)
-    np.save('./mimic_iv/processed_data/labels/mimic_val_labels_cleaned.npy', y_val)
+    np.save('mimic_iv/processed_data/subset/mimic_train_data_normalized_subset.npy', train_data_normalized)
+    np.save('mimic_iv/processed_data/subset/mimic_test_data_normalized_subset.npy', test_data_normalized)
+    np.save('mimic_iv/processed_data/subset/mimic_val_data_normalized_subset.npy', val_data_normalized)
+    np.save('mimic_iv/processed_data/subset/mimic_train_labels_normalized_subset.npy', train_labels)
+    np.save('mimic_iv/processed_data/subset/mimic_test_labels_normalized_subset.npy', test_labels)
+    np.save('mimic_iv/processed_data/subset/mimic_val_labels_normalized_subset.npy', val_labels)
 
 
-def normalize():
-    train_data = np.load('./mimic_iv/processed_data/data/mimic_train_data_cleaned.npy')
-    val_data = np.load('./mimic_iv/processed_data/data/mimic_val_data_cleaned.npy')
-    test_data = np.load('./mimic_iv/processed_data/data/mimic_test_data_cleaned.npy')
-    temp_data = np.load('./mimic_iv/processed_data/data/mimic_all_data_100_cleaned.npy')
+def filter_ecgs(input_data):
+    import antropy as ant
 
-    # filtered_data, filtered_labels = remove_nan(data_ptbxl, labels_ptbxl)
-    normalized_train_data = normalize_data(train_data)
-    normalized_val_data = normalize_data(val_data)
-    normalized_test_data = normalize_data(test_data)
-    normalized_temp_data = normalize_data(temp_data)
+    non_ecgs = []
+    template_1 = input_data[8, 1, :]
+    template_2 = input_data[47, 1, :]
+    for i, data in enumerate(input_data):
+        signal = data[1]
+        samp_entropy = ant.sample_entropy(signal, order=2, metric='chebyshev')
+        corr1 = np.correlate(signal - np.mean(signal), template_1 - np.mean(template_1), mode='full')
+        corr2 = np.correlate(signal - np.mean(signal), template_2 - np.mean(template_2), mode='full')
+        norm_factor1 = len(signal) * np.std(signal) * np.std(template_1)
+        norm_factor2 = len(signal) * np.std(signal) * np.std(template_2)
+        corr1 = corr1 / norm_factor1
+        corr2 = corr2 / norm_factor2
+        # Define a threshold for correlation and sample entropy
+        if (max(corr1) > 0.12 or max(corr2) > 0.12) and (samp_entropy < 0.5):
+            continue
+        else:
+            non_ecgs.append(i)
 
-    np.save('./mimic_iv/processed_data/data/mimic_train_data_cleaned_normalized.npy', normalized_train_data)
-    np.save('./mimic_iv/processed_data/data/mimic_val_data_cleaned_normalized.npy', normalized_val_data)
-    np.save('./mimic_iv/processed_data/data/mimic_test_data_cleaned_normalized.npy', normalized_test_data)
-    np.save('./mimic_iv/processed_data/data/mimic_temp_data_cleaned_normalized.npy', normalized_temp_data)
+    return non_ecgs
 
 
-def normalize_temp_data():
-    temp_data = np.load('./mimic_iv/processed_data/data/mimic_all_data_100_cleaned.npy')
-    normalized_temp_data = normalize_data(temp_data)
-    np.save('./mimic_iv/processed_data/data/mimic_100_cleaned_normalized.npy', normalized_temp_data)
+def ecg_quality_check():
+    train_data = np.load('./mimic_iv/processed_data/subset/mimic_train_data_normalized_subset.npy')
+    non_ecg_indices = filter_ecgs(train_data)
+    train_data = train_data[non_ecg_indices[:15], :, :]
+
+    plt.figure(figsize=(12, 5))
+
+    for i, d in enumerate(train_data):
+        plt.figure(figsize=(12, 5))
+        plt.plot(train_data[i, 0, :])
+        plt.savefig(f'./mimic_iv/plots/quality_check_4/{i}.png')
+        plt.show()
+        plt.clf()
 
 
 extract_ecg_subset()

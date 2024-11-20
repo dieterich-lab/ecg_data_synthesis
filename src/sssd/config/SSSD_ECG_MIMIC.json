@@ -22,11 +22,11 @@
     "label_embed_classes": 20
   },
   "train_config": {
-    "output_dir_orig": "mimic_iv/sssd_label_cond",
+    "output_directory": "mimic_iv/sssd_label_cond",
     "ckpt_iter": "max",
     "iters_per_ckpt": 4000,
     "iters_per_logging": 100,
-    "n_iters": 100000,
+    "n_iters": 600000,
     "learning_rate": 2e-4,
     "batch_size": 8
   },
