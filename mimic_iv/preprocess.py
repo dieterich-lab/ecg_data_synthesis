@@ -334,10 +334,8 @@ def extract_ecg_subset():
     train_min = np.min(train_data, axis=(0, 2), keepdims=True)  # Min for each lead
     train_max = np.max(train_data, axis=(0, 2), keepdims=True)  # Max for each lead
 
-    np.save('mimic_iv/processed_data/subset/mimic_train_min.npy', train_min)
-    np.save('mimic_iv/processed_data/subset/mimic_train_max.npy', train_max)
-
-    exit()
+    np.save('mimic_iv/processed_data/latest/mimic_train_min.npy', train_min)
+    np.save('mimic_iv/processed_data/latest/mimic_train_max.npy', train_max)
 
     # Normalize the training, validation, and test sets using training min/max
     def min_max_normalize(data, min_val, max_val):
@@ -362,12 +360,12 @@ def extract_ecg_subset():
     axs[1].plot(val_data_normalized[10, 5, :])
     plt.savefig(f'mimic_iv/plots/val_data_normalized_{5}_{10}.png')
 
-    np.save('mimic_iv/processed_data/subset/mimic_train_data_normalized_subset.npy', train_data_normalized)
-    np.save('mimic_iv/processed_data/subset/mimic_test_data_normalized_subset.npy', test_data_normalized)
-    np.save('mimic_iv/processed_data/subset/mimic_val_data_normalized_subset.npy', val_data_normalized)
-    np.save('mimic_iv/processed_data/subset/mimic_train_labels_normalized_subset.npy', train_labels)
-    np.save('mimic_iv/processed_data/subset/mimic_test_labels_normalized_subset.npy', test_labels)
-    np.save('mimic_iv/processed_data/subset/mimic_val_labels_normalized_subset.npy', val_labels)
+    np.save('mimic_iv/processed_data/latest/mimic_train_data_normalized_subset.npy', train_data_normalized)
+    np.save('mimic_iv/processed_data/latest/mimic_test_data_normalized_subset.npy', test_data_normalized)
+    np.save('mimic_iv/processed_data/latest/mimic_val_data_normalized_subset.npy', val_data_normalized)
+    np.save('mimic_iv/processed_data/latest/mimic_train_labels_normalized_subset.npy', train_labels)
+    np.save('mimic_iv/processed_data/latest/mimic_test_labels_normalized_subset.npy', test_labels)
+    np.save('mimic_iv/processed_data/latest/mimic_val_labels_normalized_subset.npy', val_labels)
 
 
 def filter_ecgs(input_data):

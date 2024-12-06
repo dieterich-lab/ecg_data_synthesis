@@ -45,12 +45,12 @@ def generate(output_directory,
 
     # generate experiment (local) path
     local_path = "ch{}_T{}_betaT{}_filtered".format(model_config["res_channels"],
-                                                    diffusion_config["T"],
-                                                    diffusion_config["beta_T"],
-                                                    )
+                                                         diffusion_config["T"],
+                                                         diffusion_config["beta_T"],
+                                                         )
 
     # Get shared output_directory ready
-    output_directory = os.path.join(output_directory, f'generated_ecgs_filtered_352000')
+    output_directory = os.path.join(output_directory, f'generated_ecgs_filtered_500000')
     if not os.path.isdir(output_directory):
         os.makedirs(output_directory)
         os.chmod(output_directory, 0o775)
@@ -74,19 +74,29 @@ def generate(output_directory,
     model_path = os.path.join(ckpt_path, '{}.pkl'.format(ckpt_iter))
     try:
         print("Loading checkpoint from {}".format(model_path))
+
         checkpoint = torch.load(model_path, map_location='cpu')
-        net.load_state_dict(checkpoint['model_state_dict'])
+
+        # Check if 'module.' is in the state_dict keys
+        state_dict = checkpoint['model_state_dict']
+        if any(key.startswith('module.') for key in state_dict.keys()):
+            # Remove the 'module.' prefix from the keys
+            state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+
+        # Load the state_dict into the model
+        net.load_state_dict(state_dict)
+
         print('Successfully loaded model at iteration {}'.format(ckpt_iter))
     except BaseException as e:
         raise Exception('No valid model found - {}'.format(e))
 
-    test_data = np.load('./mimic_iv/processed_data/subset/mimic_test_data_normalized_subset.npy')
-    test_labels = np.load('./mimic_iv/processed_data/subset/mimic_test_labels_normalized_subset.npy')
+    test_data = np.load('./mimic_iv/processed_data/latest/mimic_test_data_normalized_subset.npy')
+    test_labels = np.load('./mimic_iv/processed_data/latest/mimic_test_labels_normalized_subset.npy')
 
     test_dataset = []
     for i in range(test_data.shape[0]):
         test_dataset.append([test_data[i], test_labels[i]])
-    test_loader = torch.utils.data.DataLoader(test_dataset, shuffle=False, batch_size=50,
+    test_loader = torch.utils.data.DataLoader(test_dataset, shuffle=False, batch_size=10,
                                               drop_last=True, num_workers=4)
 
     for i, batch in enumerate(test_loader):
@@ -122,7 +132,7 @@ def generate(output_directory,
         np.save(new_out, real_ecg_batch.detach().cpu().numpy())
         print('saved real samples at iteration %s' % i)
 
-        if i == 10:
+        if i == 2:
             break
 
 
@@ -160,5 +170,7 @@ if __name__ == "__main__":
     model_config = config['wavenet_config']
 
     generate(**gen_config,
-             ckpt_iter=352000,  # args.ckpt_iter,
+             ckpt_iter=500000,  #args.ckpt_iter, 464000, 484000, 500000
              num_samples=args.num_samples)
+
+# 432000, 436000, 444000, 460000, 480000, 488000, 500000

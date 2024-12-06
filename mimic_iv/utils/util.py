@@ -31,7 +31,6 @@ def find_max_epoch(path):
             continue
         if f[-4:] == '.pkl':
             try:
-                # epoch = max(epoch, int(f[11:-4]))
                 epoch = max(epoch, int(f[:-4]))
             except:
                 continue
