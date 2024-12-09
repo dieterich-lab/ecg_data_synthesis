@@ -44,13 +44,13 @@ def generate(output_directory,
     """
 
     # generate experiment (local) path
-    local_path = "ch{}_T{}_betaT{}_filtered".format(model_config["res_channels"],
+    local_path = "ch{}_T{}_betaT{}_filtered_latest".format(model_config["res_channels"],
                                                          diffusion_config["T"],
                                                          diffusion_config["beta_T"],
                                                          )
 
     # Get shared output_directory ready
-    output_directory = os.path.join(output_directory, f'generated_ecgs_filtered_500000')
+    output_directory = os.path.join(output_directory, f'generated_ecgs_filtered_latest')
     if not os.path.isdir(output_directory):
         os.makedirs(output_directory)
         os.chmod(output_directory, 0o775)
@@ -170,7 +170,7 @@ if __name__ == "__main__":
     model_config = config['wavenet_config']
 
     generate(**gen_config,
-             ckpt_iter=500000,  #args.ckpt_iter, 464000, 484000, 500000
+             ckpt_iter=args.ckpt_iter, #464000, 484000, 500000
              num_samples=args.num_samples)
 
 # 432000, 436000, 444000, 460000, 480000, 488000, 500000

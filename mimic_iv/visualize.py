@@ -110,8 +110,8 @@ def visualize_ecgs(gen_ecg_denormalized, all_leads=False, lead=0):
 
 if __name__ == "__main__":
     batch_idx = 2
-    sample_idx = 1
-    exp = '256_T200_betaT0.02'
+    sample_idx = 9
+    exp = 'filtered_latest'
 
     # Load data
     gen_ecg = np.load(f'sssd_label_cond/generated_ecgs_{exp}/{batch_idx}_gen_ecg.npy')
@@ -126,4 +126,4 @@ if __name__ == "__main__":
     gen_ecg_denormalized = denormalize_data(gen_ecg, train_min, train_max)
 
     # Visualize ECGs
-    visualize_ecgs(gen_ecg, all_leads=True, lead=0)
+    visualize_ecgs(gen_ecg, all_leads=False, lead=0)

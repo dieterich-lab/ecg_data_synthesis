@@ -8,8 +8,6 @@ import logging
 from utils.util import find_max_epoch, print_size, sampling_label, calc_diffusion_hyperparams
 from models.SSSD_ECG import SSSD_ECG
 
-# Add the project directory to the sys path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,14 +28,11 @@ def generate_four_leads(tensor):
     return torch.cat([leadI, leadII, leadIII, leadavr, leadavl, leadavf, leadschest], dim=1)
 
 
-def setup_output_directory(base_path, model_config, diffusion_config):
+def setup_output_directory(base_path):
     """
     Creates and returns a directory for saving generated ECGs.
     """
-    output_dir = os.path.join(
-        base_path,
-        f"generated_ecgs_{model_config['res_channels']}_T{diffusion_config['T']}_betaT{diffusion_config['beta_T']}"
-    )
+    output_dir = os.path.join(base_path, "generated_ecgs")
     os.makedirs(output_dir, exist_ok=True)
     os.chmod(output_dir, 0o775)
     logger.info(f"Output directory created: {output_dir}")
@@ -139,18 +134,21 @@ def generate(output_directory, num_samples, ckpt_path, ckpt_iter, model_config):
             break
 
 
-if __name__ == "__main__":
+def main():
+    print("Running model inference script!")
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='src/sssd/config/SSSD_ECG_MIMIC.json',
+    parser.add_argument('-c', '--config', type=str, default='config/SSSD_ECG_MIMIC.json',
                         help='Path to the configuration JSON file')
     parser.add_argument('-ckpt_iter', '--ckpt_iter', default='max',
                         help='Checkpoint iteration to use (number or "max")')
     parser.add_argument('-n', '--num_samples', type=int, default=50, help='Number of ECGs to generate')
     args = parser.parse_args()
 
+    global config
     with open(args.config) as f:
         config = json.load(f)
 
+    global diffusion_hyperparams
     diffusion_hyperparams = calc_diffusion_hyperparams(**config["diffusion_config"])
 
     for key in diffusion_hyperparams:
@@ -158,7 +156,7 @@ if __name__ == "__main__":
             diffusion_hyperparams[key] = diffusion_hyperparams[key].cuda()
 
     output_dir = setup_output_directory(
-        config['gen_config']['output_directory'], config['wavenet_config'], config["diffusion_config"]
+        config['gen_config']['output_directory']
     )
 
     generate(
@@ -168,3 +166,7 @@ if __name__ == "__main__":
         ckpt_iter=args.ckpt_iter,
         model_config=config['wavenet_config'],
     )
+
+
+if __name__ == "__main__":
+    main()

@@ -2,6 +2,7 @@ import argparse
 import json
 import logging
 import os
+import sys
 import random
 
 import matplotlib.pyplot as plt
@@ -11,6 +12,10 @@ import torch.nn as nn
 
 from models.SSSD_ECG import SSSD_ECG
 from utils.util import find_max_epoch, training_loss_label, calc_diffusion_hyperparams
+
+
+# # Dynamically add the base directory to Python's search path
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
 
 def train(output_directory,
@@ -35,7 +40,7 @@ def train(output_directory,
     """
 
     logging.basicConfig(
-        filename='mimic_iv/sssd_mimic_training_latest.log',
+        filename='src/sssd_mimic_training_temp.log',
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
@@ -43,9 +48,9 @@ def train(output_directory,
     logger = logging.getLogger('SSSD-MIMIC Training')
 
     # generate experiment (local) path
-    local_path = "ch{}_T{}_betaT{}_filtered_latest".format(model_config["res_channels"],
-                                                         diffusion_config["T"],
-                                                         diffusion_config["beta_T"])
+    local_path = "ch{}_T{}_betaT{}_filtered_temp".format(model_config["res_channels"],
+                                                           diffusion_config["T"],
+                                                           diffusion_config["beta_T"])
 
     # Get shared output_directory ready
     output_directory = os.path.join(output_directory, local_path)
@@ -160,13 +165,13 @@ def train(output_directory,
     plt.ylabel('Loss')
     plt.title('Training Loss per Iteration for MIMIC-IV ECGs')
     plt.legend()
-    plt.savefig('src/sssd/train_loss_iteration_mimic_filtered_latest.png')
+    plt.savefig('mimic_iv/train_loss_iteration_mimic_filtered_temp.png')
 
     logger.info('Training completed')
 
 
-if __name__ == "__main__":
-
+def main():
+    print("Running model training script!")
     seed = 42
     random.seed(seed)
     np.random.seed(seed)
@@ -175,7 +180,7 @@ if __name__ == "__main__":
     torch.cuda.manual_seed(seed)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='src/sssd/config/SSSD_ECG_MIMIC.json',
+    parser.add_argument('-c', '--config', type=str, default='config/SSSD_ECG_MIMIC.json',
                         help='JSON file for configuration')
 
     args = parser.parse_args()
@@ -202,3 +207,7 @@ if __name__ == "__main__":
     model_config = config['wavenet_config']
 
     train(**train_config)
+
+
+if __name__ == "__main__":
+    main()

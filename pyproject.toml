@@ -1,17 +1,14 @@
-[build-system]
-requires = ["setuptools>=42", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
-name = "ECG Synthesis"
+name = "ecg_data_synthesis"
 version = "1.0.0"
-description = "Generation of synthetic 12-lead healthy ECGs from SSSD-ECG model trained with a subset of  MIMIC-IV dataset"
+description = "Generation of synthetic 12-lead healthy ECGs from SSSD-ECG model trained with a subset of MIMIC-IV dataset"
 authors = [
     { name = "Sanketa Hegde", email = "sanketa.hegde@uni-heidelberg.de" }
 ]
 readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
 
-[project]
 dependencies = [
     "antropy==0.1.6",
     "einops==0.7.0",
@@ -24,12 +21,17 @@ dependencies = [
     "pytorch-lightning==2.1.4",
     "scikit-learn==1.5.2",
     "scipy==1.12.0",
-    "torch==2.2.0+cu121",
-    "torchaudio==2.2.0+cu121",
+    "torch==2.2.0",
+    "torchaudio==2.2.0",
     "torchmetrics==1.6.0",
-    "torchvision==0.17.0+cu121",
+    "torchvision==0.17.0",
     "wfdb==4.1.2",
 ]
 
 [project.urls]
-Repository = "https://github.com/dieterich-lab/ecg_data_synthesis.git"
+repository = "https://github.com/dieterich-lab/ecg_data_synthesis.git"
+
+[project.scripts]
+model_train = "mimic_iv.train:main"
+model_inference = "mimic_iv.inference:main"
+
