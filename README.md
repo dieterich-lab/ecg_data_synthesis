@@ -32,9 +32,9 @@ This repository provides a script to generate synthetic 12-lead ECGs using the S
     ```bash
    python inference.py -c config/SSSD_ECG_MIMIC.json -n 50
    ```
-   **Arguments**
-   -c, --config: Path to the configuration JSON file. (Default: config/SSSD_ECG_MIMIC.json)
-   -n, --num_samples: Number of ECG samples to generate. (Default: 50)
+   **Arguments**:
+   - -c, --config: Path to the configuration JSON file. (Default: config/SSSD_ECG_MIMIC.json)
+   - -n, --num_samples: Number of ECG samples to generate. (Default: 50)
 
 ## Outputs
 The generated ECG samples are saved in a directory specified in the configuration file under gen_config.output_directory. 
