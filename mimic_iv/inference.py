@@ -139,8 +139,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--config', type=str, default='config/SSSD_ECG_MIMIC.json',
                         help='Path to the configuration JSON file')
-    parser.add_argument('-ckpt_iter', '--ckpt_iter', default='max',
-                        help='Checkpoint iteration to use (number or "max")')
     parser.add_argument('-n', '--num_samples', type=int, default=50, help='Number of ECGs to generate')
     args = parser.parse_args()
 
