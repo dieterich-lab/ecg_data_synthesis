@@ -1,12 +1,13 @@
-import os
 import argparse
 import json
+import logging
+import os
+
 import numpy as np
 import torch
-import sys
-import logging
-from utils.util import find_max_epoch, print_size, sampling_label, calc_diffusion_hyperparams
+
 from models.SSSD_ECG import SSSD_ECG
+from utils.util import print_size, sampling_label, calc_diffusion_hyperparams
 
 
 # Configure logging
@@ -32,14 +33,14 @@ def setup_output_directory(base_path):
     """
     Creates and returns a directory for saving generated ECGs.
     """
-    output_dir = os.path.join(base_path, "generated_ecgs")
+    output_dir = os.path.join(base_path, "generated_ecgs_304000")
     os.makedirs(output_dir, exist_ok=True)
     os.chmod(output_dir, 0o775)
     logger.info(f"Output directory created: {output_dir}")
     return output_dir
 
 
-def load_model(ckpt_path, ckpt_iter, model_config):
+def load_model(ckpt_path, model_config):
     """
     Loads and returns the model from the specified checkpoint.
     """
@@ -55,7 +56,7 @@ def load_model(ckpt_path, ckpt_iter, model_config):
         if any(key.startswith('module.') for key in state_dict.keys()):
             state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
         net.load_state_dict(state_dict)
-        logger.info(f"Successfully loaded model at iteration {ckpt_iter}")
+        logger.info(f"Successfully loaded the model checkpoint!")
     except Exception as e:
         logger.error(f"Error loading model: {e}")
         raise Exception(f"No valid model found - {e}")
@@ -92,7 +93,7 @@ def save_samples(output_directory, iteration, generated_ecg12, cond):
         logger.info(f"Saved {name} at iteration {iteration}")
 
 
-def generate(output_directory, num_samples, ckpt_path, ckpt_iter, model_config):
+def generate(output_directory, num_samples, ckpt_path, model_config):
     """
     Generates and saves ECG samples using a pre-trained model.
 
@@ -103,7 +104,7 @@ def generate(output_directory, num_samples, ckpt_path, ckpt_iter, model_config):
         ckpt_iter (int): Checkpoint iteration.
         model_config (dict): Model configuration dictionary.
     """
-    net = load_model(ckpt_path, ckpt_iter, model_config)
+    net = load_model(ckpt_path, model_config)
     labels = create_labels(num_samples)
     labels_loader = torch.utils.data.DataLoader(labels, batch_size=10, shuffle=False)
 
@@ -161,7 +162,6 @@ def main():
         output_directory=output_dir,
         num_samples=args.num_samples,
         ckpt_path=config['gen_config']['ckpt_path'],
-        ckpt_iter=args.ckpt_iter,
         model_config=config['wavenet_config'],
     )
 
