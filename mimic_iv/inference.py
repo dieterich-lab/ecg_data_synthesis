@@ -2,9 +2,17 @@ import argparse
 import json
 import logging
 import os
+import sys
 
 import numpy as np
 import torch
+
+# Get the absolute path of the project root
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+# Add the project root to sys.path if not already added
+if project_root not in sys.path:
+    sys.path.append(project_root)
 
 from models.SSSD_ECG import SSSD_ECG
 from utils.util import print_size, sampling_label, calc_diffusion_hyperparams
@@ -33,7 +41,7 @@ def setup_output_directory(base_path):
     """
     Creates and returns a directory for saving generated ECGs.
     """
-    output_dir = os.path.join(base_path, "generated_ecgs_304000")
+    output_dir = os.path.join(base_path, "generated_ecgs")
     os.makedirs(output_dir, exist_ok=True)
     os.chmod(output_dir, 0o775)
     logger.info(f"Output directory created: {output_dir}")
@@ -101,11 +109,17 @@ def generate(output_directory, num_samples, ckpt_path, model_config):
         output_directory (str): Directory where generated samples will be saved.
         num_samples (int): Number of samples to generate.
         ckpt_path (str): Path to the checkpoint file.
-        ckpt_iter (int): Checkpoint iteration.
         model_config (dict): Model configuration dictionary.
     """
     net = load_model(ckpt_path, model_config)
-    labels = create_labels(num_samples)
+
+    if config["gen_config"]["labels_path"]:
+        labels = np.load(config["gen_config"]["labels_path"])
+        print('Using the labels from config file')
+    else:
+        labels = create_labels(num_samples)
+        print('Created own labels from the base pattern')
+
     labels_loader = torch.utils.data.DataLoader(labels, batch_size=10, shuffle=False)
 
     for i, label_batch in enumerate(labels_loader):
