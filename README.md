@@ -10,8 +10,24 @@ This repository provides a script to generate synthetic 12-lead ECGs using the S
    ```bash
    git@github.com:dieterich-lab/ecg_data_synthesis.git
    cd ecg_data_synthesis
+   
+2. Create a virtual environment:
+   ```bash
+   python -m venv .venv
+   ```
+   
+   Open the virtual environment's activation script: `.venv/bin/activate` and add the following line at the end of the script.
+   ```bash
+   export PYTHONPATH="$PYTHONPATH:$(pwd)"
+   ```
+   This will ensure that the PYTHONPATH is set to the current working directory every time the environment is activated.
+   
+   Activate the virtual environment:
+   ```bash
+   source .venv/bin/activate
+   ```
 
-2. Install dependencies:
+3. Install dependencies:
    ```bash
    pip install -e .
 
