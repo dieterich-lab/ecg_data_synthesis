@@ -58,5 +58,7 @@ Each batch produces:
    - Generated ECG Data: <iteration>_gen_ecg.npy
    - Labels: <iteration>_labels.npy
 
+Try utilizing the `mimic_iv/visualize.py` script by modifying it according to your setup, to plot and display the generated ECGs.
+
 
        

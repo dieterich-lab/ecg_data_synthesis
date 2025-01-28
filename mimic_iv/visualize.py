@@ -97,13 +97,13 @@ def visualize_ecgs(gen_ecg_denormalized, all_leads=False, lead=0):
         # Plot all 12 leads for generated ECG
         plot_all_leads(gen_ecg_denormalized, time,
                        "Generated ECGs (All 12 Leads)",
-                       f'sssd_label_cond/generated_ecgs_{exp}/generated_ecgs_batch_{batch_idx}_{sample_idx}.png',
+                       f'sssd_label_cond/generated_ecgs/generated_ecgs_batch_{batch_idx}_{sample_idx}.png',
                        color="orange")
     else:
         # Plot single lead for generated ECG
         plot_single_lead(gen_ecg_denormalized, time,
                          f"Generated ECG (Lead {LEAD_SEQ[lead]})",
-                         f'sssd_label_cond/generated_ecgs_{exp}/gen_ecg_batch_{batch_idx}_{sample_idx}.png',
+                         f'sssd_label_cond/generated_ecgs/gen_ecg_batch_{batch_idx}_{sample_idx}.png',
                          lead=lead,
                          color="orange")
 
@@ -111,11 +111,10 @@ def visualize_ecgs(gen_ecg_denormalized, all_leads=False, lead=0):
 if __name__ == "__main__":
     batch_idx = 2
     sample_idx = 9
-    exp = 'filtered_latest'
 
     # Load data
-    gen_ecg = np.load(f'sssd_label_cond/generated_ecgs_{exp}/{batch_idx}_gen_ecg.npy')
-    labels = np.load(f'sssd_label_cond/generated_ecgs_{exp}/{batch_idx}_labels.npy')
+    gen_ecg = np.load(f'output/generated_ecgs/{batch_idx}_gen_ecg.npy')
+    labels = np.load(f'output/generated_ecgs/{batch_idx}_labels.npy')
 
     print(gen_ecg.shape, labels.shape)
 
