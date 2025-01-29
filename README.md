@@ -29,7 +29,7 @@ This repository provides a script to generate synthetic 12-lead ECGs using the S
 
 3. Install dependencies:
    ```bash
-   pip install -e .
+   pip install .
 
 
 ## Usage
