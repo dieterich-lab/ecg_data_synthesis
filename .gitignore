@@ -28,3 +28,7 @@
 /mimic_iv/final_model_checkpoints/
 /mimic_iv/sssd_label_cond/
 /src/
+.venv
+build/
+ecg_data_synthesis.egg-info/
+__pycache__/

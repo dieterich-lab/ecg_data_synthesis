@@ -1,3 +1,7 @@
+[build-system]
+requires = ['setuptools']
+build-backend = 'setuptools.build_meta'
+
 [project]
 name = "ecg_data_synthesis"
 version = "1.0.0"
@@ -35,3 +39,5 @@ repository = "https://github.com/dieterich-lab/ecg_data_synthesis.git"
 model_train = "mimic_iv.train:main"
 model_inference = "mimic_iv.inference:main"
 
+[tool.setuptools.packages.find]
+exclude = ['tests']
