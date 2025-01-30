@@ -9,7 +9,7 @@ import neurokit2 as nk
 import pandas as pd
 import matplotlib.pyplot as plt
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
-from utils import downsample_ecg
+from helpers import downsample_ecg
 from sklearn.model_selection import train_test_split
 
 pd.set_option('display.max_columns', None)
