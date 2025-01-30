@@ -23,3 +23,12 @@
 /src/baselines/
 /src/ptb_xl/ecg_data_preprocessing.ipynb
 /src/ptb_xl/clinical_ts/.ipynb_checkpoints/timeseries_utils-checkpoint.py
+/sssd_ecg_infer.sh
+/venv_new/
+/mimic_iv/final_model_checkpoints/
+/mimic_iv/sssd_label_cond/
+/src/
+.venv
+build/
+ecg_data_synthesis.egg-info/
+__pycache__/

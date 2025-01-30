@@ -1,15 +1,15 @@
+import os
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import wfdb
 import neurokit2 as nk
-import os
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
-import torch
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
+from utils import downsample_ecg
 from sklearn.model_selection import train_test_split
 
 pd.set_option('display.max_columns', None)
@@ -133,6 +133,8 @@ def format_label_categories():
     # get unique list of labels to create label array for the model
     # currently 20 unique labels i.e. length of the label array is 20
     unique_labels = get_labels(np.array(df_high_samples['Category']))
+    np.savetxt('./mimic_iv/files/label_names_sequence.txt', unique_labels, fmt='%s')
+    print(unique_labels)
 
     # Create empty 3D arrays to hold all signals and labels
     df_high_samples = df_high_samples.reset_index(drop=True)
@@ -165,6 +167,29 @@ def process_categories(row):
     elif row['Category'] == 'Sinus Arrhythmia':
         row['Labels'] = [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
     return row
+
+
+def downsample():
+    signals = np.load('processed_data/data/mimic_all_data.npy', mmap_mode='r')
+    labels = np.load('processed_data/labels/mimic_all_labels.npy', mmap_mode='r')
+    print(signals.shape)
+
+    num_samples = signals.shape[0]
+
+    downsampled_signals = np.empty((num_samples, 12, 1000), dtype=np.float64)
+    print('Empty', downsampled_signals.shape)
+
+    # Use ThreadPoolExecutor for parallel processing
+    def process_signal(i):
+        downsampled_signals[i, :, :] = downsample_ecg(signals[i], 1000)
+
+    with ThreadPoolExecutor() as executor:
+        executor.map(process_signal, range(num_samples))
+
+    print('Downsampled', downsampled_signals.shape)
+    print(labels.shape)
+
+    clean_ecgs(downsampled_signals, labels, sampling_rate=100)
 
 
 def multi_label_data_split():
@@ -209,40 +234,177 @@ def multi_label_data_split():
     np.save('./mimic_iv/processed_data/labels/mimic_val_labels_cleaned.npy', y_val)
 
 
-def clean_ecgs():
-    signals = np.load('./mimic_iv/processed_data/data/mimic_all_data.npy', mmap_mode='r')
-    labels = np.load('./mimic_iv/processed_data/labels/mimic_all_labels.npy', mmap_mode='r')
+def clean_ecgs(signals, labels, sampling_rate, verbose=False):
+    print(signals.shape, labels.shape)
+
+    def is_ecg_signal(signal, sampling_rate):
+        try:
+            # Process the signal using NeuroKit's ECG pipeline
+            _, info = nk.ecg_peaks(signal, sampling_rate)
+            return len(info['ECG_R_Peaks']) > 0  # True if R-peaks detected
+        except Exception as e:
+            if verbose:
+                print(f"Processing error: {e}")
+            return False
 
     # Process each recording
     all_ecgs, all_labels = [], []
     for idx, data in enumerate(signals):
-        print(f"Processing ECG recording {idx + 1}/{len(signals)}")
+        if verbose:
+            print(f"Processing ECG recording {idx + 1}/{len(signals)}")
         ecg_12_lead = []
+
         try:
-            for lead in data:
-                processed_lead = nk.ecg_clean(lead, sampling_rate=500, method="neurokit")
-                ecg_12_lead.append(processed_lead)
+            for i, lead in enumerate(data):
+                # Clean the lead using the specified method
+                invert_lead, _ = nk.ecg_invert(lead, sampling_rate)
+                cleaned_lead = nk.ecg_clean(invert_lead, sampling_rate, method="neurokit")
+
+                # Check if this lead is a valid ECG signal
+                if is_ecg_signal(cleaned_lead, sampling_rate):
+                    ecg_12_lead.append(cleaned_lead)
+                else:
+                    fig, axes = plt.subplots(2, 1, figsize=(15, 10))
+                    axes[0].plot(lead)
+                    axes[0].set_title('ECG signal Before Cleaning')
+                    axes[1].plot(cleaned_lead)
+                    axes[1].set_title('ECG signal After Cleaning')
+                    plt.savefig(f'temp_plots/final_cleaned_ecg_{idx}_{i}.png')
+                    plt.close()
+
+                    print(idx)
+
+                    raise ValueError(f"Invalid ECG signal in lead {len(ecg_12_lead) + 1}")
+
             all_ecgs.append(ecg_12_lead)
             all_labels.append(labels[idx])
-        except:
-            print('Something wrong with the ECG. Skipping....')
+
+        except Exception as e:
+            print(f"Skipping ECG recording {idx} due to error: {e}")
             continue
 
     all_ecgs = np.array(all_ecgs)
     all_labels = np.array(all_labels)
 
-    # fig, axes = plt.subplots(2, 1)
-    # axes[0].plot(signals[10, 0, :])
-    # axes[0].set_title('ECG signal Before Cleaning')
-    # axes[1].plot(all_ecgs[10, 0, :])
-    # axes[1].set_title('ECG signal After Cleaning')
-    # plt.show()
+    print(all_ecgs.shape, all_labels.shape)
 
-    np.save('./mimic_iv/processed_data/data/mimic_all_data_cleaned.npy', all_ecgs)
-    np.save('./mimic_iv/processed_data/labels/mimic_all_labels_cleaned.npy', all_labels)
-
-    print(all_ecgs.shape)
-    print(all_labels.shape)
+    np.save('processed_data/data/mimic_all_data_ds_cleaned.npy', all_ecgs)
+    np.save('processed_data/labels/mimic_all_labels_ds_cleaned.npy', all_labels)
 
 
-multi_label_data_split()
+def extract_ecg_subset():
+    signals = np.load('mimic_iv/processed_data/data/mimic_all_data_ds_cleaned.npy', mmap_mode='r')
+    labels = np.load('mimic_iv/processed_data/labels/mimic_all_labels_ds_cleaned.npy', mmap_mode='r')
+
+    # Create a data subset with 20,000 ecgs of label - [Sinus Rhythm, Normal]
+
+    print(signals.shape, labels.shape)
+    normal_ecg_subset, normal_labels_subset = [], []
+    for i, label in enumerate(labels):
+        label = ', '.join(map(str, label))
+        label_list = [int(x.strip()) for x in label.split(',')]
+        if label_list == [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]:
+            normal_ecg_subset.append(signals[i])
+            normal_labels_subset.append(labels[i])
+        if len(normal_ecg_subset) == 25000:
+            break
+
+    normal_ecg_array = np.array(normal_ecg_subset)
+    normal_labels_array = np.array(normal_labels_subset)
+
+    non_ecg_indices = filter_ecgs(normal_ecg_array)
+    print(len(non_ecg_indices))
+
+    normal_ecg_array = np.delete(normal_ecg_array, non_ecg_indices, axis=0)
+    normal_labels_array = np.delete(normal_labels_array, non_ecg_indices, axis=0)
+
+    print(normal_ecg_array.shape, normal_labels_array.shape)
+
+    # 70/30 split into train and temp data
+    train_data, temp_data, train_labels, temp_labels = train_test_split(normal_ecg_array, normal_labels_array,
+                                                                        test_size=0.30, random_state=42)
+    # Further split temp data into 50/50 for validation and test datasets
+    val_data, test_data, val_labels, test_labels = train_test_split(temp_data, temp_labels,
+                                                                    test_size=0.50, random_state=42)
+
+    fig, axs = plt.subplots(2, 1)
+    axs[0].plot(val_data[10, 5, :])
+
+    # Calculate min and max on the training data (lead-wise normalization)
+    train_min = np.min(train_data, axis=(0, 2), keepdims=True)  # Min for each lead
+    train_max = np.max(train_data, axis=(0, 2), keepdims=True)  # Max for each lead
+
+    np.save('mimic_iv/processed_data/latest/mimic_train_min.npy', train_min)
+    np.save('mimic_iv/processed_data/latest/mimic_train_max.npy', train_max)
+
+    # Normalize the training, validation, and test sets using training min/max
+    def min_max_normalize(data, min_val, max_val):
+        normalized_data = (data - min_val) / (max_val - min_val)
+        return np.clip(normalized_data, 0, 1)
+
+    # Apply normalization lead-wise for all splits
+    train_data_normalized = min_max_normalize(train_data, train_min, train_max)
+    val_data_normalized = min_max_normalize(val_data, train_min, train_max)
+    test_data_normalized = min_max_normalize(test_data, train_min, train_max)
+
+    # Print shapes to verify
+    print("Train Data Normalized Shape:", train_data_normalized.shape)
+    print("Validation Data Normalized Shape:", val_data_normalized.shape)
+    print("Test Data Normalized Shape:", test_data_normalized.shape)
+
+    # Check the normalized data range
+    print("Training Data Range:", np.min(train_data_normalized), np.max(train_data_normalized))
+    print("Validation Data Range:", np.min(val_data_normalized), np.max(val_data_normalized))
+    print("Test Data Range:", np.min(test_data_normalized), np.max(test_data_normalized))
+
+    axs[1].plot(val_data_normalized[10, 5, :])
+    plt.savefig(f'mimic_iv/plots/val_data_normalized_{5}_{10}.png')
+
+    np.save('mimic_iv/processed_data/latest/mimic_train_data_normalized_subset.npy', train_data_normalized)
+    np.save('mimic_iv/processed_data/latest/mimic_test_data_normalized_subset.npy', test_data_normalized)
+    np.save('mimic_iv/processed_data/latest/mimic_val_data_normalized_subset.npy', val_data_normalized)
+    np.save('mimic_iv/processed_data/latest/mimic_train_labels_normalized_subset.npy', train_labels)
+    np.save('mimic_iv/processed_data/latest/mimic_test_labels_normalized_subset.npy', test_labels)
+    np.save('mimic_iv/processed_data/latest/mimic_val_labels_normalized_subset.npy', val_labels)
+
+
+def filter_ecgs(input_data):
+    import antropy as ant
+
+    non_ecgs = []
+    template_1 = input_data[8, 1, :]
+    template_2 = input_data[47, 1, :]
+    for i, data in enumerate(input_data):
+        signal = data[1]
+        samp_entropy = ant.sample_entropy(signal, order=2, metric='chebyshev')
+        corr1 = np.correlate(signal - np.mean(signal), template_1 - np.mean(template_1), mode='full')
+        corr2 = np.correlate(signal - np.mean(signal), template_2 - np.mean(template_2), mode='full')
+        norm_factor1 = len(signal) * np.std(signal) * np.std(template_1)
+        norm_factor2 = len(signal) * np.std(signal) * np.std(template_2)
+        corr1 = corr1 / norm_factor1
+        corr2 = corr2 / norm_factor2
+        # Define a threshold for correlation and sample entropy
+        if (max(corr1) > 0.12 or max(corr2) > 0.12) and (samp_entropy < 0.5):
+            continue
+        else:
+            non_ecgs.append(i)
+
+    return non_ecgs
+
+
+def ecg_quality_check():
+    train_data = np.load('./mimic_iv/processed_data/subset/mimic_train_data_normalized_subset.npy')
+    non_ecg_indices = filter_ecgs(train_data)
+    train_data = train_data[non_ecg_indices[:15], :, :]
+
+    plt.figure(figsize=(12, 5))
+
+    for i, d in enumerate(train_data):
+        plt.figure(figsize=(12, 5))
+        plt.plot(train_data[i, 0, :])
+        plt.savefig(f'./mimic_iv/plots/quality_check_4/{i}.png')
+        plt.show()
+        plt.clf()
+
+
+extract_ecg_subset()

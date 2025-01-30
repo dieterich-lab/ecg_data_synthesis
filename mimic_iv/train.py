@@ -2,6 +2,8 @@ import argparse
 import json
 import logging
 import os
+import sys
+import random
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,6 +12,10 @@ import torch.nn as nn
 
 from models.SSSD_ECG import SSSD_ECG
 from utils.util import find_max_epoch, training_loss_label, calc_diffusion_hyperparams
+
+
+# # Dynamically add the base directory to Python's search path
+# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
 
 def train(output_directory,
@@ -24,17 +30,17 @@ def train(output_directory,
 
     Parameters:
     output_directory (str):         save model checkpoints to this path
-    ckpt_iter (int or 'max'):       the pretrained checkpoint to be loaded; 
+    ckpt_iter (int or 'max'):       the pretrained checkpoint to be loaded;
                                     automatically selects the maximum iteration if 'max' is selected
     data_path (str):                path to dataset, numpy array.
     n_iters (int):                  number of iterations to train
-    iters_per_ckpt (int):           number of iterations to save checkpoint, 
+    iters_per_ckpt (int):           number of iterations to save checkpoint,
     iters_per_logging (int):        number of iterations to save training log and compute validation loss, default is 100
     learning_rate (float):          learning rate
     """
 
     logging.basicConfig(
-        filename='src/sssd/sssd_mimic_training_mimic.log',
+        filename='mimic_iv/sssd_mimic_training_latest.log',
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
@@ -42,9 +48,9 @@ def train(output_directory,
     logger = logging.getLogger('SSSD-MIMIC Training')
 
     # generate experiment (local) path
-    local_path = "ch{}_T{}_betaT{}_mimic".format(model_config["res_channels"],
-                                                 diffusion_config["T"],
-                                                 diffusion_config["beta_T"])
+    local_path = "ch{}_T{}_betaT{}_filtered_latest".format(model_config["res_channels"],
+                                                           diffusion_config["T"],
+                                                           diffusion_config["beta_T"])
 
     # Get shared output_directory ready
     output_directory = os.path.join(output_directory, local_path)
@@ -66,9 +72,9 @@ def train(output_directory,
     logger.info(f"Model size: {model_size / 1000 ** 2:.1f}M parameters")
 
     # Use DataParallel to utilize multiple GPUs
-    # if torch.cuda.device_count() > 1:
-    #     print("Using", torch.cuda.device_count(), "GPUs!")
-    #     net = nn.DataParallel(net)
+    if torch.cuda.device_count() > 1:
+        print("Using", torch.cuda.device_count(), "GPUs!")
+        net = nn.DataParallel(net)
 
     net = net.cuda()
 
@@ -97,25 +103,19 @@ def train(output_directory,
         ckpt_iter = -1
         print('No valid checkpoint model found, start training from initialization.')
 
-    # here = os.path.dirname(os.path.abspath(__file__))
-    # filename_train = os.path.join(here, 'ptbxl_train_data.npy')
-    # filename_train_label = os.path.join(here, 'ptbxl_train_labels.npy')
-
-    filename_train = 'mimic_iv/processed_data/subset/mimic_train_data_normalized_subset.npy'
-    filename_train_label = 'mimic_iv/processed_data/subset/mimic_train_labels_normalized_subset.npy'
+    filename_train = 'mimic_iv/processed_data/latest/mimic_train_data_normalized_subset.npy'
+    filename_train_label = 'mimic_iv/processed_data/latest/mimic_train_labels_normalized_subset.npy'
 
     data_ptbxl = np.load(filename_train)
     labels_ptbxl = np.load(filename_train_label)
+
+    print('Shapes: ', data_ptbxl.shape, labels_ptbxl.shape)
 
     train_data = []
     for i in range(len(data_ptbxl)):
         train_data.append([data_ptbxl[i], labels_ptbxl[i]])
 
     trainloader = torch.utils.data.DataLoader(train_data, shuffle=True, batch_size=batch_size, drop_last=True)
-
-    # ['I','II','V1','V2','V3','V4','V5','V6','III','AVR','AVL','AVF'] for processed ptbxl dataset
-    # index_8 = torch.tensor([0, 2, 3, 4, 5, 6, 7, 11])
-    # index_4 = torch.tensor([1, 8, 9, 10])
 
     # ['I', 'II', 'III', 'aVR', 'aVF', 'aVL', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6'] for mimic-iv dataset
     index_8 = torch.tensor([0, 4, 6, 7, 8, 9, 10, 11])
@@ -165,14 +165,22 @@ def train(output_directory,
     plt.ylabel('Loss')
     plt.title('Training Loss per Iteration for MIMIC-IV ECGs')
     plt.legend()
-    plt.savefig('src/sssd/train_loss_iteration_mimic_300000.png')
+    plt.savefig('mimic_iv/train_loss_iteration_mimic_filtered_latest.png')
 
     logger.info('Training completed')
 
 
-if __name__ == "__main__":
+def main():
+    print("Running model training script!")
+    seed = 42
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    # If using CUDA
+    torch.cuda.manual_seed(seed)
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='src/sssd/config/SSSD_ECG_MIMIC.json',
+    parser.add_argument('-c', '--config', type=str, default='config/SSSD_ECG_MIMIC.json',
                         help='JSON file for configuration')
 
     args = parser.parse_args()
@@ -199,3 +207,7 @@ if __name__ == "__main__":
     model_config = config['wavenet_config']
 
     train(**train_config)
+
+
+if __name__ == "__main__":
+    main()
