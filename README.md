@@ -4,6 +4,10 @@ Based on the model here - https://github.com/AI4HealthUOL/SSSD-ECG
 
 This repository provides a script to generate synthetic 12-lead ECGs using the SSSD_ECG model. The script leverages a pre-trained model checkpoint and configuration files for customization.
 
+## Requirements
+- Python 3.10+
+- A server with **NVIDIA GPU** support
+
 ## Installation
 
 1. Clone the repository:
