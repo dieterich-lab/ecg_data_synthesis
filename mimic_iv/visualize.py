@@ -4,33 +4,6 @@ import numpy as np
 LEAD_SEQ = ['I', 'II', 'III', 'aVR', 'aVF', 'aVL', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
 
 
-def load_min_max_values():
-    """
-    Load minimum and maximum values used for normalization.
-
-    Returns:
-        tuple: Two numpy arrays representing minimum and maximum values.
-    """
-    train_min = np.load('processed_data/latest/mimic_train_min.npy')
-    train_max = np.load('processed_data/latest/mimic_train_max.npy')
-    return train_min, train_max
-
-
-def denormalize_data(normalized_data, min_val, max_val):
-    """
-    De-normalizes the data using the original min and max values.
-
-    Args:
-        normalized_data (numpy.ndarray): The normalized data to be de-normalized.
-        min_val (numpy.ndarray): The minimum values used for normalization (lead-wise).
-        max_val (numpy.ndarray): The maximum values used for normalization (lead-wise).
-
-    Returns:
-        numpy.ndarray: The de-normalized data in the original range.
-    """
-    return normalized_data * (max_val - min_val) + min_val
-
-
 def plot_all_leads(data, time, title, output_path, color="blue"):
     """
     Plots all 12 leads of ECG data in a 6x2 grid.
@@ -97,32 +70,24 @@ def visualize_ecgs(gen_ecg_denormalized, all_leads=False, lead=0):
         # Plot all 12 leads for generated ECG
         plot_all_leads(gen_ecg_denormalized, time,
                        "Generated ECGs (All 12 Leads)",
-                       f'sssd_label_cond/generated_ecgs/generated_ecgs_batch_{batch_idx}_{sample_idx}.png',
+                       f'output/generated_ecgs/gen_ecgs_all_leads_{batch_idx}_{sample_idx}.png',
                        color="orange")
     else:
         # Plot single lead for generated ECG
         plot_single_lead(gen_ecg_denormalized, time,
                          f"Generated ECG (Lead {LEAD_SEQ[lead]})",
-                         f'sssd_label_cond/generated_ecgs/gen_ecg_batch_{batch_idx}_{sample_idx}.png',
+                         f'output/generated_ecgs/gen_ecg_lead0_{batch_idx}_{sample_idx}.png',
                          lead=lead,
                          color="orange")
 
 
 if __name__ == "__main__":
-    batch_idx = 2
-    sample_idx = 9
+    batch_idx = 0
+    sample_idx = 4
 
-    # Load data
+    # Load generated ECG data and labels
     gen_ecg = np.load(f'output/generated_ecgs/{batch_idx}_gen_ecg.npy')
     labels = np.load(f'output/generated_ecgs/{batch_idx}_labels.npy')
 
-    print(gen_ecg.shape, labels.shape)
-
-    # Load min and max values
-    train_min, train_max = load_min_max_values()
-
-    # de-normalize the ecgs
-    gen_ecg_denormalized = denormalize_data(gen_ecg, train_min, train_max)
-
-    # Visualize ECGs
-    visualize_ecgs(gen_ecg, all_leads=False, lead=0)
+    # Visualize ECG data by plotting either a single lead or all 12 leads
+    visualize_ecgs(gen_ecg, all_leads=False)

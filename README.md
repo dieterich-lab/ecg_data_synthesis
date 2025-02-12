@@ -59,10 +59,25 @@ This repository provides a script to generate synthetic 12-lead ECGs using the S
 ## Outputs
 The generated ECG samples are saved in a directory specified in the configuration file under gen_config.output_directory. 
 Each batch produces:
-   - Generated ECG Data: <iteration>_gen_ecg.npy
-   - Labels: <iteration>_labels.npy
+   - Generated ECG Data: `<iteration>_gen_ecg.npy` with shape: `(N, 12, 1000)`
+   - Labels: `<iteration>_labels.npy` with shape: `(N, 20)`
 
-Try utilizing the `mimic_iv/visualize.py` script by modifying it according to your setup, to plot and display the generated ECGs.
+## To Display Generated ECGs (Optional)
+Try utilizing the `visualize.py` script under `mimic_iv` folder by modifying it according to your setup, to plot and display the generated ECGs.
+
+Ensure `batch_idx` and `sample_idx` are correctly set before running the script.
+The script assumes ECG data is stored in NumPy `.npy` format.
+
+**Example Output:**
+
+Single Lead: output/generated_ecgs/gen_ecg_lead0_{batch_idx}_{sample_idx}.png
+
+All Leads: output/generated_ecgs/gen_ecgs_all_leads_{batch_idx}_{sample_idx}.png
+
+
+
+
+
 
 
        
