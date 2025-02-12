@@ -59,20 +59,27 @@ This repository provides a script to generate synthetic 12-lead ECGs using the S
 ## Outputs
 The generated ECG samples are saved in a directory specified in the configuration file under gen_config.output_directory. 
 Each batch produces:
-   - Generated ECG Data: `<iteration>_gen_ecg.npy` with shape: `(N, 12, 1000)`
-   - Labels: `<iteration>_labels.npy` with shape: `(N, 20)`
+   - Generated ECG Data: `<batch_idx>_gen_ecg.npy` with shape: `(N, 12, 1000)`
+   - Labels: `<batch_idx>_labels.npy` with shape: `(N, 20)`
 
 ## To Display Generated ECGs (Optional)
-Try utilizing the `visualize.py` script under `mimic_iv` folder by modifying it according to your setup, to plot and display the generated ECGs.
+Try utilizing the `visualize.py` script under `mimic_iv` folder by modifying it according to your setup.
+This script is used to visualize ECG signals from generated numpy (.npy) files. The script loads ECG data and associated labels, then plots the ECG waveform for a specified sample.
 
-Ensure `batch_idx` and `sample_idx` are correctly set before running the script.
-The script assumes ECG data is stored in NumPy `.npy` format.
+### **Usage**
+`python mimic_iv/visualize.py --batch_idx <BATCH_INDEX> --sample_idx <SAMPLE_INDEX> [--all_leads]`
 
-**Example Output:**
+### Arguments
 
-Single Lead: output/generated_ecgs/gen_ecg_lead0_{batch_idx}_{sample_idx}.png
+`--batch_idx`: (Required) The batch index of the ECG data file.
 
-All Leads: output/generated_ecgs/gen_ecgs_all_leads_{batch_idx}_{sample_idx}.png
+`--sample_idx`: (Required) The sample index to visualize within the batch.
+
+`--all_leads`: (Optional) If included, plots all available ECG leads else plots lead I only
+
+### Example
+`python mimic_iv/visualize.py --batch_idx 0 --sample_idx 5 --all_leads`
+
 
 
 

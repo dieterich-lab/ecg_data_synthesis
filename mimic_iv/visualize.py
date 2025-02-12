@@ -1,10 +1,12 @@
+import argparse
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 LEAD_SEQ = ['I', 'II', 'III', 'aVR', 'aVF', 'aVL', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
 
 
-def plot_all_leads(data, time, title, output_path, color="blue"):
+def plot_all_leads(data, time, title, output_path, color="blue", sample_idx=0):
     """
     Plots all 12 leads of ECG data in a 6x2 grid.
 
@@ -31,7 +33,7 @@ def plot_all_leads(data, time, title, output_path, color="blue"):
     plt.close(fig)
 
 
-def plot_single_lead(data, time, title, output_path, lead=0, color="blue"):
+def plot_single_lead(data, time, title, output_path, lead=0, color="blue", sample_idx=0):
     """
     Plots a single lead of ECG data.
 
@@ -56,38 +58,47 @@ def plot_single_lead(data, time, title, output_path, lead=0, color="blue"):
     plt.close()
 
 
-def visualize_ecgs(gen_ecg_denormalized, all_leads=False, lead=0):
+def visualize_ecgs(gen_ecg, batch_idx, sample_idx, all_leads=False, lead=0):
     """
     Visualizes ECG data by plotting generated ECGs.
 
      Args:
-        gen_ecg_denormalized (numpy.ndarray): De-normalized generated ECG data, shape (samples, leads, time).
+        gen_ecg (numpy.ndarray): Generated ECG data, shape (samples, leads, time).
         all_leads (bool): Whether to plot all leads or just a single lead.
     """
     time = np.arange(0, 1000) / 100  # Time in seconds
 
     if all_leads:
         # Plot all 12 leads for generated ECG
-        plot_all_leads(gen_ecg_denormalized, time,
+        plot_all_leads(gen_ecg, time,
                        "Generated ECGs (All 12 Leads)",
                        f'output/generated_ecgs/gen_ecgs_all_leads_{batch_idx}_{sample_idx}.png',
-                       color="orange")
+                       color="orange",
+                       sample_idx=sample_idx
+                       )
     else:
         # Plot single lead for generated ECG
-        plot_single_lead(gen_ecg_denormalized, time,
+        plot_single_lead(gen_ecg, time,
                          f"Generated ECG (Lead {LEAD_SEQ[lead]})",
                          f'output/generated_ecgs/gen_ecg_lead0_{batch_idx}_{sample_idx}.png',
                          lead=lead,
-                         color="orange")
+                         color="orange",
+                         sample_idx=sample_idx),
+
+    print('Plotted ECGs Successfully!')
 
 
 if __name__ == "__main__":
-    batch_idx = 0
-    sample_idx = 4
+    parser = argparse.ArgumentParser(description="ECG Plotting Script")
+    parser.add_argument("--batch_idx", type=int, required=True, help="Batch index")
+    parser.add_argument("--sample_idx", type=int, required=True, help="Sample index")
+    parser.add_argument("--all_leads", action="store_true", help="Plot all leads")
 
-    # Load generated ECG data and labels
-    gen_ecg = np.load(f'output/generated_ecgs/{batch_idx}_gen_ecg.npy')
-    labels = np.load(f'output/generated_ecgs/{batch_idx}_labels.npy')
+    args = parser.parse_args()
 
-    # Visualize ECG data by plotting either a single lead or all 12 leads
-    visualize_ecgs(gen_ecg, all_leads=False)
+    # Load data
+    gen_ecg = np.load(f'output/generated_ecgs/{args.batch_idx}_gen_ecg.npy')
+    labels = np.load(f'output/generated_ecgs/{args.batch_idx}_labels.npy')
+
+    # Visualize ECG
+    visualize_ecgs(gen_ecg, args.batch_idx, args.sample_idx, all_leads=args.all_leads)
