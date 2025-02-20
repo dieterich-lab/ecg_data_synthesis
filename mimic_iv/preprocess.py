@@ -9,6 +9,7 @@ import neurokit2 as nk
 import pandas as pd
 import matplotlib.pyplot as plt
 from iterstrat.ml_stratifiers import MultilabelStratifiedKFold
+from helpers import find_afib_ecgs
 from helpers import downsample_ecg
 from sklearn.model_selection import train_test_split
 
@@ -192,46 +193,34 @@ def downsample():
     clean_ecgs(downsampled_signals, labels, sampling_rate=100)
 
 
-def multi_label_data_split():
-    signals = np.load('./mimic_iv/processed_data/data/mimic_all_data_cleaned.npy', mmap_mode='r')
-    labels = np.load('./mimic_iv/processed_data/labels/mimic_all_labels_cleaned.npy', mmap_mode='r')
+def multi_label_data_split(signals, labels):
 
     print(signals.shape, labels.shape)
-    print(signals[:2])
-    print(labels[:2])
 
     # Initialize MultilabelStratifiedKFold for train-test split
     mskf = MultilabelStratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
     # Initialize arrays to store the final splits
-    X_train_val, y_train_val, X_test, y_test = None, None, None, None
+    X_train, y_train, X_test, y_test = None, None, None, None
 
     # Generate the train+val vs. test split indices
     for train_index, test_index in mskf.split(signals, labels):
-        X_train_val, X_test = signals[train_index], signals[test_index]
-        y_train_val, y_test = labels[train_index], labels[test_index]
+        X_train, X_test = signals[train_index], signals[test_index]
+        y_train, y_test = labels[train_index], labels[test_index]
         break  # Use only the first split
 
-    print(X_train_val.shape, X_test.shape)
+    print(X_train.shape, X_test.shape)
 
-    # Initialize arrays to store the train and validation splits
-    X_train, y_train, X_val, y_val = None, None, None, None
+    # # Initialize arrays to store the train and validation splits
+    # X_train, y_train, X_val, y_val = None, None, None, None
+    #
+    # # Generate the train vs. val split indices
+    # for t_index, v_index in mskf.split(X_train_val, y_train_val):
+    #     X_train, X_val = X_train_val[t_index], X_train_val[v_index]
+    #     y_train, y_val = y_train_val[t_index], y_train_val[v_index]
+    #     break  # Use only the first split
 
-    # Generate the train vs. val split indices
-    for t_index, v_index in mskf.split(X_train_val, y_train_val):
-        X_train, X_val = X_train_val[t_index], X_train_val[v_index]
-        y_train, y_val = y_train_val[t_index], y_train_val[v_index]
-        break  # Use only the first split
-
-    print(X_train.shape, X_val.shape)
-
-    # save the train and test data and labels in numpy format for the model
-    np.save('./mimic_iv/processed_data/data/mimic_train_data_cleaned.npy', X_train)
-    np.save('./mimic_iv/processed_data/data/mimic_test_data_cleaned.npy', X_test)
-    np.save('./mimic_iv/processed_data/data/mimic_val_data_cleaned.npy', X_val)
-    np.save('./mimic_iv/processed_data/labels/mimic_train_labels_cleaned.npy', y_train)
-    np.save('./mimic_iv/processed_data/labels/mimic_test_labels_cleaned.npy', y_test)
-    np.save('./mimic_iv/processed_data/labels/mimic_val_labels_cleaned.npy', y_val)
+    return X_train, X_test, y_train, y_test
 
 
 def clean_ecgs(signals, labels, sampling_rate, verbose=False):
@@ -300,42 +289,61 @@ def extract_ecg_subset():
 
     print(signals.shape, labels.shape)
     normal_ecg_subset, normal_labels_subset = [], []
+    af_ecgs, af_labels = [], []
     for i, label in enumerate(labels):
         label = ', '.join(map(str, label))
         label_list = [int(x.strip()) for x in label.split(',')]
         if label_list == [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]:
             normal_ecg_subset.append(signals[i])
             normal_labels_subset.append(labels[i])
-        if len(normal_ecg_subset) == 25000:
-            break
+        elif label_list == [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]:
+            af_ecgs.append(signals[i])
+            af_labels.append(labels[i])
 
-    normal_ecg_array = np.array(normal_ecg_subset)
-    normal_labels_array = np.array(normal_labels_subset)
+    print(len(af_ecgs), len(af_labels))
+    print(len(normal_ecg_subset), len(normal_labels_subset))
 
-    non_ecg_indices = filter_ecgs(normal_ecg_array)
-    print(len(non_ecg_indices))
+    normal_ecg_array = np.array(normal_ecg_subset[:10000])
+    normal_labels_array = np.array(normal_labels_subset[:10000])
+    af_ecg_array = np.array(af_ecgs)
+    af_labels_array = np.array(af_labels)
+    print(normal_ecg_array.shape, normal_labels_array.shape)
+    print(af_ecg_array.shape, af_labels_array.shape)
 
-    normal_ecg_array = np.delete(normal_ecg_array, non_ecg_indices, axis=0)
-    normal_labels_array = np.delete(normal_labels_array, non_ecg_indices, axis=0)
+    afib_indices = find_afib_ecgs(af_ecg_array, 100)
+    print(f"ECGs with suspected AFib: {afib_indices}")
+    print(len(afib_indices))
+
+    non_ecg_indices_normal = filter_ecgs(normal_ecg_array, 'normal')
+    normal_ecg_array = np.delete(normal_ecg_array, non_ecg_indices_normal, axis=0)
+    normal_labels_array = np.delete(normal_labels_array, non_ecg_indices_normal, axis=0)
+
+    af_ecg_array = af_ecg_array[afib_indices, :, :]
+    af_labels_array = af_labels_array[afib_indices, :]
+
+    normal_ecg_array = normal_ecg_array[:len(afib_indices)]
+    normal_labels_array = normal_labels_array[:len(afib_indices)]
 
     print(normal_ecg_array.shape, normal_labels_array.shape)
+    print(af_ecg_array.shape, af_labels_array.shape)
 
-    # 70/30 split into train and temp data
-    train_data, temp_data, train_labels, temp_labels = train_test_split(normal_ecg_array, normal_labels_array,
-                                                                        test_size=0.30, random_state=42)
-    # Further split temp data into 50/50 for validation and test datasets
-    val_data, test_data, val_labels, test_labels = train_test_split(temp_data, temp_labels,
-                                                                    test_size=0.50, random_state=42)
+    np.save('mimic_iv/processed_data/finetune_afib/af_ecgs.npy', af_ecg_array)
 
-    fig, axs = plt.subplots(2, 1)
-    axs[0].plot(val_data[10, 5, :])
+    exit()
+
+    mix_ecg_array = np.concatenate((normal_ecg_array, af_ecg_array), axis=0)
+    mix_labels_array = np.concatenate((normal_labels_array, af_labels_array), axis=0)
+    print(mix_ecg_array.shape, mix_labels_array.shape)
+
+    # multi-label stratified split
+    train_data, test_data, train_labels, test_labels = multi_label_data_split(mix_ecg_array, mix_labels_array)
 
     # Calculate min and max on the training data (lead-wise normalization)
     train_min = np.min(train_data, axis=(0, 2), keepdims=True)  # Min for each lead
     train_max = np.max(train_data, axis=(0, 2), keepdims=True)  # Max for each lead
 
-    np.save('mimic_iv/processed_data/latest/mimic_train_min.npy', train_min)
-    np.save('mimic_iv/processed_data/latest/mimic_train_max.npy', train_max)
+    np.save('mimic_iv/processed_data/finetune_afib/mimic_afib_train_min.npy', train_min)
+    np.save('mimic_iv/processed_data/finetune_afib/mimic_afib_train_max.npy', train_max)
 
     # Normalize the training, validation, and test sets using training min/max
     def min_max_normalize(data, min_val, max_val):
@@ -344,36 +352,36 @@ def extract_ecg_subset():
 
     # Apply normalization lead-wise for all splits
     train_data_normalized = min_max_normalize(train_data, train_min, train_max)
-    val_data_normalized = min_max_normalize(val_data, train_min, train_max)
     test_data_normalized = min_max_normalize(test_data, train_min, train_max)
 
     # Print shapes to verify
     print("Train Data Normalized Shape:", train_data_normalized.shape)
-    print("Validation Data Normalized Shape:", val_data_normalized.shape)
     print("Test Data Normalized Shape:", test_data_normalized.shape)
 
     # Check the normalized data range
     print("Training Data Range:", np.min(train_data_normalized), np.max(train_data_normalized))
-    print("Validation Data Range:", np.min(val_data_normalized), np.max(val_data_normalized))
     print("Test Data Range:", np.min(test_data_normalized), np.max(test_data_normalized))
 
-    axs[1].plot(val_data_normalized[10, 5, :])
-    plt.savefig(f'mimic_iv/plots/val_data_normalized_{5}_{10}.png')
+    np.save('mimic_iv/processed_data/finetune_afib/mimic_afib_train_data_normalized_subset.npy', train_data_normalized)
+    np.save('mimic_iv/processed_data/finetune_afib/mimic_afib_test_data_normalized_subset.npy', test_data_normalized)
+    np.save('mimic_iv/processed_data/finetune_afib/mimic_afib_train_labels_normalized_subset.npy', train_labels)
+    np.save('mimic_iv/processed_data/finetune_afib/mimic_afib_test_labels_normalized_subset.npy', test_labels)
 
-    np.save('mimic_iv/processed_data/latest/mimic_train_data_normalized_subset.npy', train_data_normalized)
-    np.save('mimic_iv/processed_data/latest/mimic_test_data_normalized_subset.npy', test_data_normalized)
-    np.save('mimic_iv/processed_data/latest/mimic_val_data_normalized_subset.npy', val_data_normalized)
-    np.save('mimic_iv/processed_data/latest/mimic_train_labels_normalized_subset.npy', train_labels)
-    np.save('mimic_iv/processed_data/latest/mimic_test_labels_normalized_subset.npy', test_labels)
-    np.save('mimic_iv/processed_data/latest/mimic_val_labels_normalized_subset.npy', val_labels)
+    print('Preprocessing completed!!')
 
 
-def filter_ecgs(input_data):
+def filter_ecgs(input_data, cond):
     import antropy as ant
 
     non_ecgs = []
-    template_1 = input_data[8, 1, :]
-    template_2 = input_data[47, 1, :]
+    if cond == 'normal':
+        template_1 = input_data[8, 1, :]
+        template_2 = input_data[47, 1, :]
+    elif cond == 'af':
+        template_1 = input_data[230, 1, :]
+        template_2 = input_data[254, 1, :]
+        template_3 = input_data[346, 1, :]
+
     for i, data in enumerate(input_data):
         signal = data[1]
         samp_entropy = ant.sample_entropy(signal, order=2, metric='chebyshev')
@@ -383,11 +391,22 @@ def filter_ecgs(input_data):
         norm_factor2 = len(signal) * np.std(signal) * np.std(template_2)
         corr1 = corr1 / norm_factor1
         corr2 = corr2 / norm_factor2
-        # Define a threshold for correlation and sample entropy
-        if (max(corr1) > 0.12 or max(corr2) > 0.12) and (samp_entropy < 0.5):
-            continue
-        else:
-            non_ecgs.append(i)
+
+        if cond == 'af':
+            corr3 = np.correlate(signal - np.mean(signal), template_3 - np.mean(template_3), mode='full')
+            norm_factor3 = len(signal) * np.std(signal) * np.std(template_3)
+            corr3 = corr3 / norm_factor3
+
+            if (max(corr1) > 0.12 or max(corr2) > 0.12 or max(corr3) > 0.12) and (samp_entropy < 0.5):
+                continue
+            else:
+                non_ecgs.append(i)
+
+        elif cond == 'normal':
+            if (max(corr1) > 0.12 or max(corr2) > 0.12) and (samp_entropy < 0.5):
+                continue
+            else:
+                non_ecgs.append(i)
 
     return non_ecgs
 

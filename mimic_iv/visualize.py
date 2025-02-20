@@ -1,3 +1,5 @@
+import random
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -58,7 +60,7 @@ def plot_all_leads(data, time, title, output_path, color="blue"):
     plt.close(fig)
 
 
-def plot_single_lead(data, time, title, output_path, lead=0, color="blue"):
+def plot_single_lead(data, time, title, output_path, lead=0, color="blue", idx=0):
     """
     Plots a single lead of ECG data.
 
@@ -71,7 +73,7 @@ def plot_single_lead(data, time, title, output_path, lead=0, color="blue"):
         color (str): Color of the ECG line.
     """
     plt.figure(figsize=(12, 4))
-    plt.plot(time, data[sample_idx, lead], color=color, label=f"Lead I")
+    plt.plot(time, data[idx, lead], color=color, label=f"Lead I")
     plt.xlabel("Time (s)")
     plt.ylabel("Amplitude (mV)")
     plt.title(title)
@@ -93,36 +95,42 @@ def visualize_ecgs(gen_ecg_denormalized, all_leads=False, lead=0):
     """
     time = np.arange(0, 1000) / 100  # Time in seconds
 
-    if all_leads:
-        # Plot all 12 leads for generated ECG
-        plot_all_leads(gen_ecg_denormalized, time,
-                       "Generated ECGs (All 12 Leads)",
-                       f'sssd_label_cond/generated_ecgs/generated_ecgs_batch_{batch_idx}_{sample_idx}.png',
-                       color="orange")
-    else:
-        # Plot single lead for generated ECG
-        plot_single_lead(gen_ecg_denormalized, time,
-                         f"Generated ECG (Lead {LEAD_SEQ[lead]})",
-                         f'sssd_label_cond/generated_ecgs/gen_ecg_batch_{batch_idx}_{sample_idx}.png',
-                         lead=lead,
-                         color="orange")
+    for idx in sample_idx:
+        if all_leads:
+            # Plot all 12 leads for generated ECG
+            plot_all_leads(gen_ecg_denormalized, time,
+                           "Generated ECGs (All 12 Leads)",
+                           f'output_{checkpoint}/generated_ecgs_{label}/generated_ecgs_batch_{batch_idx}_{idx}.png',
+                           color="orange")
+        else:
+            # Plot single lead for generated ECG
+            plot_single_lead(gen_ecg_denormalized, time,
+                             f"Generated ECG (Lead {LEAD_SEQ[lead]})",
+                             f'output_{checkpoint}/generated_ecgs_{label}/gen_ecg_batch_{batch_idx}_{idx}.png',
+                             lead=lead,
+                             color="orange",
+                             idx=idx)
 
 
 if __name__ == "__main__":
-    batch_idx = 2
-    sample_idx = 9
+    checkpoint = 'v2_196000'
+    label_type = ['afib', 'healthy']
+    for label in label_type:
+        for batch_idx in [0, 1, 2]:
+            # batch_idx = 2
+            sample_idx = [random.randint(0, 9) for _ in range(3)]
 
-    # Load data
-    gen_ecg = np.load(f'output/generated_ecgs/{batch_idx}_gen_ecg.npy')
-    labels = np.load(f'output/generated_ecgs/{batch_idx}_labels.npy')
+            # Load data
+            gen_ecg = np.load(f'output_{checkpoint}/generated_ecgs_{label}/{batch_idx}_gen_ecg.npy')
+            labels = np.load(f'output_{checkpoint}/generated_ecgs_{label}/{batch_idx}_labels.npy')
 
-    print(gen_ecg.shape, labels.shape)
+            print(gen_ecg.shape, labels.shape)
 
-    # Load min and max values
-    train_min, train_max = load_min_max_values()
+            # # Load min and max values
+            # train_min, train_max = load_min_max_values()
+            #
+            # # de-normalize the ecgs
+            # gen_ecg_denormalized = denormalize_data(gen_ecg, train_min, train_max)
 
-    # de-normalize the ecgs
-    gen_ecg_denormalized = denormalize_data(gen_ecg, train_min, train_max)
-
-    # Visualize ECGs
-    visualize_ecgs(gen_ecg, all_leads=False, lead=0)
+            # Visualize ECGs
+            visualize_ecgs(gen_ecg, all_leads=False, lead=0)

@@ -2,7 +2,6 @@ import argparse
 import json
 import logging
 import os
-import sys
 import random
 
 import matplotlib.pyplot as plt
@@ -14,8 +13,24 @@ from models.SSSD_ECG import SSSD_ECG
 from utils.util import find_max_epoch, training_loss_label, calc_diffusion_hyperparams
 
 
-# # Dynamically add the base directory to Python's search path
-# sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+def load_pretrained_model(logger, ckpt_path):
+    net = SSSD_ECG(**model_config).cuda()
+
+    try:
+        logger.info(f"Loading checkpoint from {ckpt_path}")
+        checkpoint = torch.load(ckpt_path, map_location='cpu')
+        state_dict = checkpoint['model_state_dict']
+
+        # remove module. prefix from the keys
+        if any(key.startswith('module.') for key in state_dict.keys()):
+            state_dict = {k.replace('module.', ''): v for k, v in state_dict.items()}
+        net.load_state_dict(state_dict)
+        logger.info(f"Successfully loaded the model checkpoint!")
+    except Exception as e:
+        logger.error(f"Error loading model: {e}")
+        raise Exception(f"No valid model found - {e}")
+
+    return net
 
 
 def train(output_directory,
@@ -24,7 +39,8 @@ def train(output_directory,
           iters_per_ckpt,
           iters_per_logging,
           learning_rate,
-          batch_size):
+          batch_size,
+          ckpt_path):
     """
     Train Diffusion Models
 
@@ -40,15 +56,15 @@ def train(output_directory,
     """
 
     logging.basicConfig(
-        filename='mimic_iv/sssd_mimic_training_latest.log',
+        filename='mimic_iv/finetune_afib_v2_0.0001.log',
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
-    logger = logging.getLogger('SSSD-MIMIC Training')
+    logger = logging.getLogger('Fine-tuning SSSD-MIMIC Model to Generate AF ECGs')
 
     # generate experiment (local) path
-    local_path = "ch{}_T{}_betaT{}_filtered_latest".format(model_config["res_channels"],
+    local_path = "ch{}_T{}_betaT{}_afib_v2_0.0001".format(model_config["res_channels"],
                                                            diffusion_config["T"],
                                                            diffusion_config["beta_T"])
 
@@ -64,17 +80,19 @@ def train(output_directory,
         if key != "T":
             diffusion_hyperparams[key] = diffusion_hyperparams[key].cuda()
 
-    # predefine model
-    net = SSSD_ECG(**model_config)
+    # load pre-trained model
+    net = load_pretrained_model(logger, ckpt_path)
 
     # Log the total of trainable parameters
     model_size = sum(t.numel() for t in net.parameters())
     logger.info(f"Model size: {model_size / 1000 ** 2:.1f}M parameters")
 
     # Use DataParallel to utilize multiple GPUs
-    if torch.cuda.device_count() > 1:
-        print("Using", torch.cuda.device_count(), "GPUs!")
-        net = nn.DataParallel(net)
+    # if torch.cuda.device_count() > 1:
+    #     print("Using", torch.cuda.device_count(), "GPUs!")
+    #     net = nn.DataParallel(net)
+
+    print("Using", torch.cuda.device_count(), "GPUs!")
 
     net = net.cuda()
 
@@ -90,10 +108,29 @@ def train(output_directory,
             model_path = os.path.join(output_directory, '{}.pkl'.format(ckpt_iter))
             checkpoint = torch.load(model_path, map_location='cpu')
 
+            state_dict = checkpoint['model_state_dict']
+
+            print("Checkpoint keys:", state_dict.keys())
+            print("Model keys:", net.state_dict().keys())
+
+            from collections import OrderedDict
+            # Add "module." prefix if needed
+            new_state_dict = OrderedDict()
+            for k, v in state_dict.items():
+                name = "module." + k
+                new_state_dict[name] = v
+
+
+            net.load_state_dict(new_state_dict, strict=False)
+
+            print('model load check!')
+
             # feed model dict and optimizer state
-            net.load_state_dict(checkpoint['model_state_dict'])
+            # net.load_state_dict(checkpoint['model_state_dict'])
             if 'optimizer_state_dict' in checkpoint:
                 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+            print('optimizer load check!')
 
             print('Successfully loaded model at iteration {}'.format(ckpt_iter))
         except:
@@ -103,17 +140,17 @@ def train(output_directory,
         ckpt_iter = -1
         print('No valid checkpoint model found, start training from initialization.')
 
-    filename_train = 'mimic_iv/processed_data/latest/mimic_train_data_normalized_subset.npy'
-    filename_train_label = 'mimic_iv/processed_data/latest/mimic_train_labels_normalized_subset.npy'
+    filename_train = 'mimic_iv/processed_data/finetune_afib/mimic_afib_train_data_normalized_subset.npy'
+    filename_train_label = 'mimic_iv/processed_data/finetune_afib/mimic_afib_train_labels_normalized_subset.npy'
 
-    data_ptbxl = np.load(filename_train)
-    labels_ptbxl = np.load(filename_train_label)
+    data = np.load(filename_train)
+    labels = np.load(filename_train_label)
 
-    print('Shapes: ', data_ptbxl.shape, labels_ptbxl.shape)
+    print('Shapes: ', data.shape, labels.shape)
 
     train_data = []
-    for i in range(len(data_ptbxl)):
-        train_data.append([data_ptbxl[i], labels_ptbxl[i]])
+    for i in range(len(data)):
+        train_data.append([data[i], labels[i]])
 
     trainloader = torch.utils.data.DataLoader(train_data, shuffle=True, batch_size=batch_size, drop_last=True)
 
@@ -146,7 +183,6 @@ def train(output_directory,
             optimizer.step()
 
             if n_iter % iters_per_logging == 0:
-                # print("iteration: {} \tloss: {}".format(n_iter, loss.item()))
                 logger.info("iteration: {} \tloss: {}".format(n_iter, loss.item()))
 
             # save checkpoint
@@ -163,9 +199,9 @@ def train(output_directory,
     plt.plot(iter_loss, label='Training Loss')
     plt.xlabel('Iteration')
     plt.ylabel('Loss')
-    plt.title('Training Loss per Iteration for MIMIC-IV ECGs')
+    plt.title('Training Loss per Iteration for Fine-tuned AF ECGs')
     plt.legend()
-    plt.savefig('mimic_iv/train_loss_iteration_mimic_filtered_latest.png')
+    plt.savefig('mimic_iv/train_loss_iteration_mimic_afib_v2_0.0001_ext.png')
 
     logger.info('Training completed')
 
