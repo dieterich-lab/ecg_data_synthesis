@@ -2,7 +2,7 @@
 
 Based on the model here - https://github.com/AI4HealthUOL/SSSD-ECG
 
-This repository provides a script to generate synthetic 12-lead ECGs using the SSSD_ECG model. The script leverages a pre-trained model checkpoint and configuration files for customization.
+This repository provides a script to generate synthetic 12-lead ECGs for 2 labels i.e. healthy and Atrial Fibrillation, using the SSSD_ECG model. The script leverages a pre-trained model checkpoint and configuration files for customization.
 
 ## Requirements
 - Python 3.10+
@@ -36,25 +36,24 @@ This repository provides a script to generate synthetic 12-lead ECGs using the S
    pip install .
 
 
-## Usage
+## Usage for Evaluation
 
 1. Prepare Checkpoint:
-   Download the pre-trained model checkpoint from here - https://data.dieterichlab.org/s/rbGRSJgZFQTb8Ha
+   Download the pre-trained model checkpoint to generate ECGs from the specified links below.
+      - Only healthy ECGs - https://data.dieterichlab.org/s/rbGRSJgZFQTb8Ha
+      - Healthy and AF ECGs - https://data.dieterichlab.org/s/pne9aLZsx3yjci9
 
-2. Setup Configuration:
+3. Setup Configuration:
    Specify the downloaded checkpoint path in the JSON configuration file (config/SSSD_ECG_MIMIC.json).
 
-3. Run the ECG generation script:
-   ```bash
-   model_inference
-   ```
-   or run using python,
+4. Run the ECG generation script:
     ```bash
-   python inference.py -c config/SSSD_ECG_MIMIC.json -n 50
+   python mimic_iv/inference.py -c config/SSSD_ECG_MIMIC.json -n 50 -l afib
    ```
    **Arguments**:
    - -c, --config: Path to the configuration JSON file. (Default: config/SSSD_ECG_MIMIC.json)
    - -n, --num_samples: Number of ECG samples to generate. (Default: 50)
+   - -l, --label_type: Define the type of ECG to generate. Choose between "afib" or "healthy"
 
 ## Outputs
 The generated ECG samples are saved in a directory specified in the configuration file under gen_config.output_directory. 
@@ -77,8 +76,10 @@ This script is used to visualize ECG signals from generated numpy (.npy) files. 
 
 `--all_leads`: (Optional) If included, plots all available ECG leads else plots lead I only
 
+`--label_type`: (Required) The disease label type for ECG visualization
+
 ### Example
-`python mimic_iv/visualize.py --batch_idx 0 --sample_idx 5 --all_leads`
+`python mimic_iv/visualize.py --batch_idx 0 --sample_idx 5 --all_leads --label_type afib`
 
 
 
