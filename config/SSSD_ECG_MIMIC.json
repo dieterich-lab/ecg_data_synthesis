@@ -40,7 +40,7 @@
   },
   "gen_config": {
     "output_directory": "output/",
-    "ckpt_path": "484000.pkl",
+    "ckpt_path": "path/to/model_checkpoint",
     "labels_path": ""
   }
 }

@@ -72,7 +72,7 @@ def visualize_ecgs(gen_ecg, batch_idx, sample_idx, all_leads=False, lead=0):
         # Plot all 12 leads for generated ECG
         plot_all_leads(gen_ecg, time,
                        "Generated ECGs (All 12 Leads)",
-                       f'output/generated_ecgs/gen_ecgs_all_leads_{batch_idx}_{sample_idx}.png',
+                       f'output/generated_ecgs_{args.label_type}/gen_ecgs_all_leads_{batch_idx}_{sample_idx}.png',
                        color="orange",
                        sample_idx=sample_idx
                        )
@@ -80,12 +80,12 @@ def visualize_ecgs(gen_ecg, batch_idx, sample_idx, all_leads=False, lead=0):
         # Plot single lead for generated ECG
         plot_single_lead(gen_ecg, time,
                          f"Generated ECG (Lead {LEAD_SEQ[lead]})",
-                         f'output/generated_ecgs/gen_ecg_lead0_{batch_idx}_{sample_idx}.png',
+                         f'output/generated_ecgs_{args.label_type}/gen_ecg_lead0_{batch_idx}_{sample_idx}.png',
                          lead=lead,
                          color="orange",
                          sample_idx=sample_idx),
 
-    print('Plotted ECGs Successfully!')
+    print('Plotted ECG Successfully!')
 
 
 if __name__ == "__main__":
@@ -93,12 +93,13 @@ if __name__ == "__main__":
     parser.add_argument("--batch_idx", type=int, required=True, help="Batch index")
     parser.add_argument("--sample_idx", type=int, required=True, help="Sample index")
     parser.add_argument("--all_leads", action="store_true", help="Plot all leads")
+    parser.add_argument("--label_type", type=str, required=True, help="Disease label type")
 
     args = parser.parse_args()
 
     # Load data
-    gen_ecg = np.load(f'output/generated_ecgs/{args.batch_idx}_gen_ecg.npy')
-    labels = np.load(f'output/generated_ecgs/{args.batch_idx}_labels.npy')
+    gen_ecg = np.load(f'output/generated_ecgs_{args.label_type}/{args.batch_idx}_gen_ecg.npy')
+    labels = np.load(f'output/generated_ecgs_{args.label_type}/{args.batch_idx}_labels.npy')
 
     # Visualize ECG
     visualize_ecgs(gen_ecg, args.batch_idx, args.sample_idx, all_leads=args.all_leads)
