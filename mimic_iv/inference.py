@@ -37,11 +37,11 @@ def generate_four_leads(tensor):
     return torch.cat([leadI, leadII, leadIII, leadavr, leadavl, leadavf, leadschest], dim=1)
 
 
-def setup_output_directory(base_path):
+def setup_output_directory(base_path, label_type):
     """
     Creates and returns a directory for saving generated ECGs.
     """
-    output_dir = os.path.join(base_path, "generated_ecgs")
+    output_dir = os.path.join(base_path, f"generated_ecgs_{label_type}")
     os.makedirs(output_dir, exist_ok=True)
     os.chmod(output_dir, 0o775)
     logger.info(f"Output directory created: {output_dir}")
@@ -72,21 +72,25 @@ def load_model(ckpt_path, model_config):
     return net
 
 
-def create_labels(num_samples):
+def create_labels(num_samples, label_type):
     """
-    Generates a 2D NumPy array of labels based on a specified pattern.
+    Generates a 2D NumPy array of labels for either healthy or AFib ECGs.
 
     Args:
-        num_samples (int): The number of labels (rows) to generate.
+        num_samples (int): Number of samples to generate.
+        label_type (str): Either 'healthy' or 'afib'.
 
     Returns:
-        np.ndarray: A 2D array of shape (num_samples, len(base_pattern)).
+        np.ndarray: A 2D array of labels.
     """
-    base_pattern = [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
+    if label_type == "healthy":
+        base_pattern = [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]  # Healthy: Sinus rhythm + Normal diagnosis
+    elif label_type == "afib":
+        base_pattern = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # AFib
 
-    # Repeat the base pattern for the number of samples
     labels_array = np.tile(base_pattern, (num_samples, 1))
     return labels_array
+
 
 
 def save_samples(output_directory, iteration, generated_ecg12, cond):
@@ -101,15 +105,16 @@ def save_samples(output_directory, iteration, generated_ecg12, cond):
         logger.info(f"Saved {name} at iteration {iteration}")
 
 
-def generate(output_directory, num_samples, ckpt_path, model_config):
+def generate(output_directory, num_samples, ckpt_path, model_config, label_type):
     """
-    Generates and saves ECG samples using a pre-trained model.
+    Generates and saves ECG samples based on the specified label type.
 
     Args:
-        output_directory (str): Directory where generated samples will be saved.
-        num_samples (int): Number of samples to generate.
-        ckpt_path (str): Path to the checkpoint file.
-        model_config (dict): Model configuration dictionary.
+        output_directory (str): Directory to save ECGs.
+        num_samples (int): Number of ECGs to generate.
+        ckpt_path (str): Model checkpoint path.
+        model_config (dict): Model configuration.
+        label_type (str): "healthy" or "afib".
     """
     net = load_model(ckpt_path, model_config)
 
@@ -117,7 +122,7 @@ def generate(output_directory, num_samples, ckpt_path, model_config):
         labels = np.load(config["gen_config"]["labels_path"])
         print('Using the labels from config file')
     else:
-        labels = create_labels(num_samples)
+        labels = create_labels(num_samples, label_type)
         print('Created own labels from the base pattern')
 
     labels_loader = torch.utils.data.DataLoader(labels, batch_size=10, shuffle=False)
@@ -142,11 +147,12 @@ def generate(output_directory, num_samples, ckpt_path, model_config):
         torch.cuda.synchronize()
 
         elapsed_time = start.elapsed_time(end) / 1000
-        logger.info(f'Generated batch {i + 1}/{(num_samples + 9) // 10} in {elapsed_time:.2f} seconds.')
+        logger.info(f'Generated {label_type} batch {i + 1}/{(num_samples + 9) // 10} in {elapsed_time:.2f} seconds.')
 
         if i == 2:
-            logger.info("Stopping early after generating 3 batches for testing.")
             break
+
+    print('Inference Completed!')
 
 
 def main():
@@ -155,7 +161,12 @@ def main():
     parser.add_argument('-c', '--config', type=str, default='config/SSSD_ECG_MIMIC.json',
                         help='Path to the configuration JSON file')
     parser.add_argument('-n', '--num_samples', type=int, default=50, help='Number of ECGs to generate')
+    parser.add_argument('-l', '--label_type', type=str, choices=['healthy', 'afib'], default='healthy',
+                        help='Type of ECG to generate: "healthy" or "afib"')
     args = parser.parse_args()
+    print(args)
+
+    print(os.getcwd())
 
     global config
     with open(args.config) as f:
@@ -169,7 +180,7 @@ def main():
             diffusion_hyperparams[key] = diffusion_hyperparams[key].cuda()
 
     output_dir = setup_output_directory(
-        config['gen_config']['output_directory']
+        config['gen_config']['output_directory'], label_type=args.label_type
     )
 
     generate(
@@ -177,6 +188,7 @@ def main():
         num_samples=args.num_samples,
         ckpt_path=config['gen_config']['ckpt_path'],
         model_config=config['wavenet_config'],
+        label_type=args.label_type
     )
 
 
