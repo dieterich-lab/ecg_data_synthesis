@@ -41,7 +41,7 @@ This repository provides a script to generate synthetic 12-lead ECGs for 2 label
 1. Prepare Checkpoint:
    Download the pre-trained model checkpoint to generate ECGs from the specified links below.
       - Only healthy ECGs - https://data.dieterichlab.org/s/rbGRSJgZFQTb8Ha
-      - Healthy and AF ECGs - https://data.dieterichlab.org/s/pne9aLZsx3yjci9
+      - Healthy and AF ECGs - https://data.dieterichlab.org/s/D6HC8xaCrjDx3sJ
 
 3. Setup Configuration:
    Specify the downloaded checkpoint path in the JSON configuration file (config/SSSD_ECG_MIMIC.json).
