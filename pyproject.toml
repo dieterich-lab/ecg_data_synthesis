@@ -30,6 +30,7 @@ dependencies = [
     "torchmetrics==1.6.0",
     "torchvision==0.17.0",
     "wfdb==4.1.2",
+    "pykeops==2.2.3"
 ]
 
 [project.urls]
