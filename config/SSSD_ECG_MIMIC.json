@@ -29,18 +29,18 @@
     "n_iters": 300000,
     "learning_rate": 2e-4,
     "batch_size": 8,
-    "ckpt_path": "mimic_iv/484000.pkl"
+    "ckpt_path": "path/to/pre_trained_model"
   },
   "trainset_config": {
     "segment_length": 1000,
     "sampling_rate": 100,
     "finetune_dataset": "mimic_iv",
-    "data_path": "mimic_iv/processed_data/finetune_afib/mimic_afib_train_data_normalized_subset.npy",
-    "labels_path": "mimic_iv/processed_data/finetune_afib/mimic_afib_train_labels_normalized_subset.npy"
+    "data_path": "path/to/dataset_array",
+    "labels_path": "path/to/labels_array"
   },
   "gen_config": {
     "output_directory": "output/",
-    "ckpt_path": "mimic_iv/final_model_checkpoints/afib_healthy_model_200000.pkl",
+    "ckpt_path": "path/to/model_checkpoint",
     "labels_path": ""
   }
 }
