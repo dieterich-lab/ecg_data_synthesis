@@ -26,8 +26,8 @@
     "ckpt_iter": "max",
     "iters_per_ckpt": 4000,
     "iters_per_logging": 100,
-    "n_iters": 400000,
-    "learning_rate": 1e-4,
+    "n_iters": 300000,
+    "learning_rate": 2e-4,
     "batch_size": 8,
     "ckpt_path": "mimic_iv/484000.pkl"
   },
@@ -39,8 +39,8 @@
     "labels_path": "mimic_iv/processed_data/finetune_afib/mimic_afib_train_labels_normalized_subset.npy"
   },
   "gen_config": {
-    "output_directory": "output_v2_196000/",
-    "ckpt_path": "mimic_iv/sssd_label_cond/ch256_T200_betaT0.02_afib_v2/196000.pkl",
+    "output_directory": "output/",
+    "ckpt_path": "mimic_iv/final_model_checkpoints/afib_healthy_model_200000.pkl",
     "labels_path": ""
   }
 }
