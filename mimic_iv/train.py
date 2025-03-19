@@ -40,7 +40,9 @@ def train(output_directory,
           iters_per_logging,
           learning_rate,
           batch_size,
-          ckpt_path):
+          ckpt_path,
+          filename_train,
+          filename_train_label):
     """
     Train Diffusion Models
 
@@ -56,7 +58,7 @@ def train(output_directory,
     """
 
     logging.basicConfig(
-        filename='mimic_iv/finetune_afib_v2_0.0001.log',
+        filename='mimic_iv/finetune.log',
         level=logging.INFO,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
@@ -64,7 +66,7 @@ def train(output_directory,
     logger = logging.getLogger('Fine-tuning SSSD-MIMIC Model to Generate AF ECGs')
 
     # generate experiment (local) path
-    local_path = "ch{}_T{}_betaT{}_afib_v2_0.0001".format(model_config["res_channels"],
+    local_path = "ch{}_T{}_betaT{}".format(model_config["res_channels"],
                                                            diffusion_config["T"],
                                                            diffusion_config["beta_T"])
 
@@ -86,11 +88,6 @@ def train(output_directory,
     # Log the total of trainable parameters
     model_size = sum(t.numel() for t in net.parameters())
     logger.info(f"Model size: {model_size / 1000 ** 2:.1f}M parameters")
-
-    # Use DataParallel to utilize multiple GPUs
-    # if torch.cuda.device_count() > 1:
-    #     print("Using", torch.cuda.device_count(), "GPUs!")
-    #     net = nn.DataParallel(net)
 
     print("Using", torch.cuda.device_count(), "GPUs!")
 
@@ -139,9 +136,6 @@ def train(output_directory,
     else:
         ckpt_iter = -1
         print('No valid checkpoint model found, start training from initialization.')
-
-    filename_train = 'mimic_iv/processed_data/finetune_afib/mimic_afib_train_data_normalized_subset.npy'
-    filename_train_label = 'mimic_iv/processed_data/finetune_afib/mimic_afib_train_labels_normalized_subset.npy'
 
     data = np.load(filename_train)
     labels = np.load(filename_train_label)
@@ -242,7 +236,9 @@ def main():
     global model_config
     model_config = config['wavenet_config']
 
-    train(**train_config)
+    train(**train_config,
+          filename_train=["data_path"],
+          filename_train_label=["labels_path"])
 
 
 if __name__ == "__main__":
